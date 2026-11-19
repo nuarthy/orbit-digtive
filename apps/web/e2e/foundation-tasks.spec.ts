@@ -29,7 +29,7 @@ async function bootstrapOwner(page: Page) {
   await expect(page).toHaveURL(/\/tasks(?:\?|$)/)
 
   await page.getByRole('button', { name: 'Account menu for Orbit Owner' }).click()
-  await page.getByRole('button', { name: 'Log out' }).click()
+  await page.getByRole('menuitem', { name: 'Log out' }).click()
   await expect(page).toHaveURL(/\/login(?:\?|$)/)
   await page.getByLabel('Email').fill('owner@orbit.test')
   await page.getByRole('textbox', { name: 'Password *' }).fill('correct horse battery staple')
@@ -55,8 +55,8 @@ async function createWorkspaceAndInviteMember(page: Page, browser: Browser) {
   await invitee.getByLabel('Password', { exact: true }).fill('member password is long enough')
   await invitee.getByRole('button', { name: 'Accept invitation' }).click()
   await expect(invitee.getByRole('button', { name: 'Workspace: Foundation' })).toBeVisible()
-  await invitee.goto(new URL('/settings/members', invitation).href)
-  await expect(invitee.locator('.data-table-row').filter({ hasText: 'member@orbit.test' })).toContainText('Member')
+  await invitee.goto('/settings/members')
+  await expect(invitee.locator('[data-member-row]').filter({ hasText: 'member@orbit.test' })).toContainText('Member')
   await inviteeContext.close()
 
   const newTab = await page.context().newPage()
@@ -103,59 +103,60 @@ async function createTaskWithAttachment(page: Page) {
   await api(page, `/api/v1/workspaces/${workspaceId}/projects/${projects.items[0]!.id}/labels`, 'POST', { name: 'Unused label', color: '#123456' })
   await page.goto('/tasks')
   await page.getByRole('button', { name: 'New task' }).click()
-  const title = page.getByRole('dialog').getByLabel('Task title')
+  const title = page.getByRole('textbox', { name: 'Task title' })
   await expect(title).toBeFocused()
   await title.fill('Restored task')
-  await page.getByRole('button', { name: 'Create task' }).click()
-  await expect(page).toHaveURL(/\/tasks\/.+/)
   await page.getByLabel('Attach files').setInputFiles({
     name: 'proof.txt',
     mimeType: 'text/plain',
     buffer: Buffer.from('persisted attachment'),
   })
+  await page.getByRole('button', { name: 'Create task' }).click()
+  await expect(page).toHaveURL(/\/tasks\/.+/)
   await expect(page.getByText('proof.txt')).toBeVisible()
-  const [download] = await Promise.all([
-    page.waitForEvent('download'),
-    page.getByRole('link', { name: /proof\.txt/ }).click(),
-  ])
-  expect(download.suggestedFilename()).toBe('proof.txt')
+  const fileBlock = page.locator('[data-content-type="file"]').filter({ hasText: 'proof.txt' })
+  const attachmentUrl = await fileBlock.getAttribute('data-url')
+  expect(attachmentUrl).toBeTruthy()
+  const download = await page.request.get(new URL(attachmentUrl!, page.url()).href)
+  expect(download.ok()).toBeTruthy()
+  expect(await download.text()).toBe('persisted attachment')
 
-  const priority = page.locator('.tasks-side-group').first().getByRole('button').nth(1)
-  await priority.click()
-  await page.getByRole('button', { name: 'Urgent' }).click()
-  await expect(priority).toContainText('Urgent')
+  await page.getByRole('button', { name: /Set priority/ }).click()
+  await page.getByRole('menuitem', { name: 'Urgent' }).click()
+  await expect(page.getByRole('button', { name: /Urgent/ })).toBeVisible()
 
   await page.getByRole('button', { name: 'Add label' }).click()
   await page.getByRole('option', { name: 'Unused label' }).click()
-  await expect(page.locator('.tasks-label-pill').filter({ hasText: 'Unused label' })).toBeVisible()
+  await expect(page.locator('[data-slot="label-pill"]').filter({ hasText: 'Unused label' })).toBeVisible()
 
-  const status = page.locator('.tasks-side-group').first().getByRole('button').first()
-  await status.click()
-  await page.getByRole('button', { name: 'In Progress' }).click()
-  await expect(status).toContainText('In Progress')
+  await page.getByRole('button', { name: /Backlog/ }).click()
+  await page.getByRole('menuitem', { name: 'In Progress' }).click()
+  await expect(page.getByRole('button', { name: /In Progress/ })).toBeVisible()
 
-  const composer = page.getByPlaceholder('Leave a comment…').locator('..')
-  await page.getByPlaceholder('Leave a comment…').fill('Persisted comment')
-  await composer.getByRole('button', { name: 'Send' }).click()
+  await page.getByRole('textbox', { name: 'Comment' }).fill('Persisted comment')
+  await page.getByRole('button', { name: 'Send' }).click()
   await expect(page.getByText('Persisted comment')).toBeVisible()
-  await composer.getByLabel('Attach comment files').setInputFiles({
+  await page.getByLabel('Attach comment files').setInputFiles({
     name: 'comment-proof.txt', mimeType: 'text/plain', buffer: Buffer.from('attachment-only comment'),
   })
-  await expect(composer.getByText('comment-proof.txt')).toBeVisible()
-  await composer.getByRole('button', { name: 'Send' }).click()
+  await expect(page.getByText('comment-proof.txt')).toBeVisible()
+  await page.getByRole('button', { name: 'Send' }).click()
   await expect(page.getByText('comment-proof.txt')).toBeVisible()
 
-  const taskId = new URL(page.url()).pathname.split('/').at(-1)!
-  const record = await api<{ version: number }>(page, `/api/v1/workspaces/${workspaceId}/tasks/${taskId}`)
-  await api(page, `/api/v1/workspaces/${workspaceId}/tasks/${taskId}`, 'PATCH', { expected_version: record.version, title: 'Server title' })
+  const taskSlug = new URL(page.url()).pathname.split('/').at(-1)!
+  const record = await api<{ id: string; version: number }>(page, `/api/v1/workspaces/${workspaceId}/tasks/${taskSlug}`)
+  // The URL uses the project identifier; writes need the task's UUID.
+  await api(page, `/api/v1/workspaces/${workspaceId}/tasks/${record.id}`, 'PATCH', { expected_version: record.version, title: 'Server title' })
+  await expect(title).toHaveText('Server title')
+  await title.click()
   await expect(title).toHaveValue('Server title')
   await title.fill('Restored task')
   await title.press('Tab')
-  await expect(title).toHaveValue('Restored task')
+  await expect(title).toHaveText('Restored task')
 }
 
 async function deleteAndRestoreTask(page: Page) {
-  await page.getByRole('button', { name: 'Delete' }).click()
+  await page.getByRole('button', { name: 'Delete', exact: true }).click()
   await page.getByRole('button', { name: 'Move to trash' }).click()
   await expect(page).toHaveURL(/\/tasks(?:\?|$)/)
   await page.goto('/tasks-trash')
@@ -195,10 +196,10 @@ test('setup through restored task', async ({ page, browser }) => {
   const foundationSearch = new URL(page.url()).search
 
   await page.goto(`/settings/members${foundationSearch}`)
-  const memberRow = page.locator('.data-table-row').filter({ hasText: 'member@orbit.test' })
+  const memberRow = page.locator('[data-member-row]').filter({ hasText: 'member@orbit.test' })
   await memberRow.getByRole('button', { name: 'Manage' }).click()
-  await page.getByRole('button', { name: 'Transfer ownership' }).click()
+  await page.getByRole('menuitem', { name: 'Transfer ownership' }).click()
   await page.getByRole('dialog').getByRole('button', { name: 'Transfer ownership' }).click()
-  await expect(page.locator('.data-table-row').filter({ hasText: 'owner@orbit.test' })).toContainText('Admin')
-  await expect(page.locator('.data-table-row').filter({ hasText: 'Workspace Member' })).toContainText('Owner')
+  await expect(page.locator('[data-member-row]').filter({ hasText: 'owner@orbit.test' })).toContainText('Admin')
+  await expect(page.locator('[data-member-row]').filter({ hasText: 'Workspace Member' })).toContainText('Owner')
 })

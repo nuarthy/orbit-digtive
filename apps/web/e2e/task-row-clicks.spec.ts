@@ -25,6 +25,8 @@ for (const touch of [false, true]) {
         if (path.endsWith('/statuses')) body = { items: [{ id: 'todo', project_id: 'project-1', name: 'Todo', category: 'unstarted', color: '#123456', position: 0, version: 1 }], next_cursor: null }
         if (path.endsWith('/tasks') || path.endsWith('/tasks/query')) body = { items: tasks, next_cursor: null }
         if (path.endsWith('/tasks/task-1')) body = tasks[0]
+        if (path.endsWith('/relations')) body = []
+        if (path.endsWith('/github-links')) body = []
         await route.fulfill({ json: body })
       })
       await page.goto('/tasks?workspace=alpha')

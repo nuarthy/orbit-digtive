@@ -40,7 +40,8 @@ for (const width of [390, 1280]) {
     await expect(dialog.getByRole('button', { name: 'Delete workspace', exact: true })).toBeDisabled()
     await dialog.getByRole('button', { name: 'Cancel' }).click()
     expect(deleted).toBe(false)
-    await page.getByRole('button', { name: 'Delete workspace', exact: true }).click()
+    // The cancelled dialog may still be closing; the page-level button is the first match.
+    await page.getByRole('button', { name: 'Delete workspace', exact: true }).first().click()
     await dialog.getByLabel('Confirm workspace name').fill('Alpha')
     await dialog.getByRole('button', { name: 'Delete workspace', exact: true }).click()
     await expect(dialog.getByRole('button', { name: 'Deleting…' })).toHaveAttribute('aria-disabled', 'true')
@@ -54,6 +55,6 @@ for (const width of [390, 1280]) {
     await expect(page).toHaveURL(/\/settings\?workspace=beta$/)
     await page.reload()
     await expect(page.getByRole('button', { name: 'Delete workspace', exact: true })).toHaveCount(0)
-    await expect(page.getByLabel('Name', { exact: true })).toHaveValue('Beta')
+    await expect(page.getByRole('button', { name: 'Workspace: Beta' })).toBeVisible()
   })
 }

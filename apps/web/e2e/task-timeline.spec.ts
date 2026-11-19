@@ -51,6 +51,7 @@ test('drag a timeline bar, then open the task and come back to the same layout',
     // only `all` is a timeline; every other page has no stored preference and shows the default list
     if (path.endsWith('/view-preferences/all')) body = timelinePreference
     if (path.endsWith('/tasks/task-1')) body = task
+    if (path.endsWith('/relations')) body = []
     if (path.endsWith('/github-links')) body = []
     await route.fulfill({ json: body })
   })
@@ -71,6 +72,7 @@ test('drag a timeline bar, then open the task and come back to the same layout',
 
   await bar.click()
   await expect(page).toHaveURL(/\/tasks\/task-1\?workspace=alpha$/)
+  await expect(page.locator('div[data-view="detail"]')).toBeVisible()
   await page.keyboard.press('Escape')
   // back on the page the task was opened from, not the task's project page
   await expect(page).toHaveURL(/\/tasks\?workspace=alpha$/)

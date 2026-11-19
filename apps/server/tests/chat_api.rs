@@ -3522,6 +3522,8 @@ async fn a_forward_is_a_copy_with_its_files_that_mentions_nobody_and_outlives_th
         "conversation_id": source,
         "author_id": fixture.owner.id.to_string(),
         "created_at": sent["result"]["created_at"],
+        // Forwarded records include the original message's integration name, null for a person.
+        "bot_name": Value::Null,
     });
     assert_eq!(forward["forwarded"], origin);
     // The other members get the same event as for a sent message.
