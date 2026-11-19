@@ -18,8 +18,8 @@ function setup() {
   client.setQueryData(queryKeys.currentUser, { id: 'user-1', email: 'owner@orbit.test', display_name: 'Owner', installation_admin: false, root: false })
   client.setQueryData(queryKeys.authOptions, { billing_enabled: false })
   client.setQueryData(['workspaces'], [
-    { id: 'alpha', name: 'Alpha', role: 'owner', permissions: [], version: 1 },
-    { id: 'beta', name: 'Beta', role: 'member', permissions: [], version: 1 },
+    { id: 'alpha', name: 'Alpha', role: 'owner', permissions: [], project_permissions: [], version: 1 },
+    { id: 'beta', name: 'Beta', role: 'member', permissions: [], project_permissions: [], version: 1 },
   ])
   return render(<QueryClientProvider client={client}><MemoryRouter initialEntries={['/tasks?workspace=alpha']}>
     <WorkspaceProvider><WorkspaceSwitcher /><Location /></WorkspaceProvider>
@@ -58,7 +58,7 @@ test('creates a workspace from the dropdown and selects it', async () => {
   let submittedName: string | undefined
   globalThis.fetch = (async (request: Request) => {
     submittedName = (await request.json()).name
-    return Response.json({ id: 'gamma', name: 'Gamma', role: 'owner', permissions: [], version: 1 })
+    return Response.json({ id: 'gamma', name: 'Gamma', role: 'owner', permissions: [], project_permissions: [], version: 1 })
   }) as unknown as typeof fetch
   const view = setup()
   fireEvent.click(view.getByRole('button', { name: 'Workspace: Alpha' }))
@@ -105,7 +105,7 @@ test('dismissing a pending creation prevents duplicate submission and a late wor
   fireEvent.click(view.getByRole('button', { name: 'Workspace: Alpha' }))
   expect((view.getByRole('button', { name: 'Create workspace' }) as HTMLButtonElement).disabled).toBe(true)
   fireEvent.click(view.getByRole('button', { name: 'Beta' }))
-  finish(Response.json({ id: 'gamma', name: 'Gamma', role: 'owner', permissions: [], version: 1 }))
+  finish(Response.json({ id: 'gamma', name: 'Gamma', role: 'owner', permissions: [], project_permissions: [], version: 1 }))
   fireEvent.click(view.getByRole('button', { name: 'Workspace: Beta' }))
   await view.findByRole('button', { name: 'Gamma' })
   expect(view.getByTestId('location').textContent).toBe('/tasks?workspace=beta')

@@ -1,5 +1,5 @@
-import { beforeAll, describe, expect, mock, test } from 'bun:test'
-import { act, fireEvent, render } from '@testing-library/react'
+import { afterEach, beforeAll, describe, expect, mock, test } from 'bun:test'
+import { act, cleanup, fireEvent, render } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { createRef } from 'react'
 import { setAppNavigate } from '@/lib/navigateBridge'
@@ -13,6 +13,9 @@ beforeAll(() => {
   meta.content = 'width=device-width, initial-scale=1, interactive-widget=resizes-content'
   document.head.append(meta)
 })
+
+// BlockNote registers global UI; leaked editors make later paste tests target the wrong instance.
+afterEach(() => cleanup())
 
 const FILE_URL =
   '/api/v1/workspaces/01a0d778-64cb-7422-a4df-c7eae799677f/pages/01a0d779-0000-7000-8000-000000000001/files/01a0d779-0000-7000-8000-000000000002'
@@ -229,7 +232,7 @@ describe('PageEditor', () => {
     const onChange = mock((content: unknown[]) => void content)
     const { ref } = await renderEditor({ uploadFile, onChange })
     await act(async () => ref.current!.focus())
-    const editorEl = document.querySelector('.bn-editor') as HTMLElement
+    const editorEl = view.container.querySelector('.bn-editor') as HTMLElement
     const file = new File([new Uint8Array([0x89, 0x50, 0x4e, 0x47])], 'shot.png', { type: 'image/png' })
     await act(async () => {
       fireEvent.paste(editorEl, {
@@ -252,7 +255,7 @@ describe('PageEditor', () => {
     const onChange = mock((content: unknown[]) => void content)
     const { ref } = await renderEditor({ onChange })
     await act(async () => ref.current!.focus())
-    const editorEl = document.querySelector('.bn-editor') as HTMLElement
+    const editorEl = view.container.querySelector('.bn-editor') as HTMLElement
     const data: Record<string, string> = { 'text/plain': 'pasted text' }
     await act(async () => {
       fireEvent.paste(editorEl, { clipboardData: { types: Object.keys(data), getData: (type: string) => data[type] ?? '' } })

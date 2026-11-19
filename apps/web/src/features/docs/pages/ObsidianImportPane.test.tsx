@@ -137,7 +137,7 @@ function setup(path: string, handler: Handler = () => undefined) {
     return problem(404, 'not_found')
   }) as unknown as typeof fetch
   const client = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: Infinity }, mutations: { retry: false } } })
-  client.setQueryData(queryKeys.workspaces, [{ id: 'workspace-1', name: 'Alpha', role: 'owner', permissions: [], version: 1 }])
+  client.setQueryData(queryKeys.workspaces, [{ id: 'workspace-1', name: 'Alpha', role: 'owner', permissions: [], project_permissions: [], version: 1 }])
   const view = render(
     <QueryClientProvider client={client}>
       <MemoryRouter initialEntries={[`${path}?workspace=workspace-1`]}>

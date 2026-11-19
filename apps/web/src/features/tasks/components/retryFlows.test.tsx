@@ -49,7 +49,7 @@ test('workspace creation retry repeats form clearing and workspace selection', a
   globalThis.fetch = (async (input: RequestInfo | URL) => {
     bodies.push(await (input as Request).json())
     calls += 1
-    return calls === 1 ? failure() : Response.json({ id: 'workspace-2', name: 'Second', role: 'owner', permissions: [], version: 0 }, { status: 201 })
+    return calls === 1 ? failure() : Response.json({ id: 'workspace-2', name: 'Second', role: 'owner', permissions: [], project_permissions: [], version: 0 }, { status: 201 })
   }) as unknown as typeof fetch
   const selectWorkspace = mock(() => {})
   const { Wrapper } = wrapper(selectWorkspace)
@@ -72,7 +72,10 @@ test('workspace creation retry repeats form clearing and workspace selection', a
 
 test('project creation retry selects the created project', async () => {
   let calls = 0
-  globalThis.fetch = (async () => {
+  globalThis.fetch = (async (input: RequestInfo | URL) => {
+    const request = input as Request
+    // Creating a project first reads the existing keys, so only count the actual POST attempts.
+    if (request.method === 'GET') return Response.json({ items: [], next_cursor: null })
     calls += 1
     return calls === 1 ? failure() : Response.json({
       id: 'project-2', workspace_id: workspace.id, name: 'Second', key: 'SECON', color: '#8b5cf6',

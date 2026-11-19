@@ -18,7 +18,7 @@ function Location() {
 test('activity lists assignment notifications and opens the linked task', async () => {
   window.localStorage.clear()
   const client = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: Infinity } } })
-  client.setQueryData(queryKeys.workspaces, [{ id: 'workspace-1', name: 'Alpha', role: 'owner', permissions: [], version: 1 }])
+  client.setQueryData(queryKeys.workspaces, [{ id: 'workspace-1', name: 'Alpha', role: 'owner', permissions: [], project_permissions: [], version: 1 }])
   client.setQueryData(queryKeys.members('workspace-1'), [{
     id: 'user-owner', membershipId: 'm1', name: 'Owner', handle: 'owner', email: 'o@x',
     role: 'Owner', color: '#000', title: '', roleIds: [], can: NO_MEMBER_ABILITIES, version: 1,
@@ -55,7 +55,7 @@ test('activity lists assignment notifications and opens the linked task', async 
 test('page comment mentions name the page and open it with the thread', async () => {
   window.localStorage.clear()
   const client = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: Infinity } } })
-  client.setQueryData(queryKeys.workspaces, [{ id: 'workspace-1', name: 'Alpha', role: 'owner', permissions: [], version: 1 }])
+  client.setQueryData(queryKeys.workspaces, [{ id: 'workspace-1', name: 'Alpha', role: 'owner', permissions: [], project_permissions: [], version: 1 }])
   client.setQueryData(queryKeys.members('workspace-1'), [{
     id: 'user-owner', membershipId: 'm1', name: 'Owner', handle: 'owner', email: 'o@x',
     role: 'Owner', color: '#000', title: '', roleIds: [], can: NO_MEMBER_ABILITIES, version: 1,
@@ -94,7 +94,7 @@ test('page comment mentions name the page and open it with the thread', async ()
 test('page body mentions name the editor and the page and open the page at the block', async () => {
   window.localStorage.clear()
   const client = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: Infinity } } })
-  client.setQueryData(queryKeys.workspaces, [{ id: 'workspace-1', name: 'Alpha', role: 'owner', permissions: [], version: 1 }])
+  client.setQueryData(queryKeys.workspaces, [{ id: 'workspace-1', name: 'Alpha', role: 'owner', permissions: [], project_permissions: [], version: 1 }])
   client.setQueryData(queryKeys.members('workspace-1'), [{
     id: 'user-owner', membershipId: 'm1', name: 'Orbit Owner', handle: 'owner', email: 'o@x',
     role: 'Owner', color: '#000', title: '', roleIds: [], can: NO_MEMBER_ABILITIES, version: 1,

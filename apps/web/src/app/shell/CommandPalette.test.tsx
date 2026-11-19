@@ -53,7 +53,7 @@ function setup(onClose = () => {}, target = false, path = '/tasks', mail = true)
   ])
   client.setQueryData(queryKeys.authOptions, { mail_enabled: mail })
   client.setQueryData(queryKeys.workspaces, [
-    { id: 'workspace-1', name: 'Alpha', role: 'owner', permissions: [], version: 1 },
+    { id: 'workspace-1', name: 'Alpha', role: 'owner', permissions: [], project_permissions: [], version: 1 },
   ])
   globalThis.fetch = (async (input: RequestInfo | URL) => {
     const url = String(input instanceof Request ? input.url : input)

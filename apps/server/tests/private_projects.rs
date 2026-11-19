@@ -249,13 +249,15 @@ impl World {
         .execute(server.database.pool())
         .await
         .unwrap();
-        sqlx::query("UPDATE memberships SET custom_role_id = $1 WHERE user_id = $2 OR user_id = $3")
-            .bind(&role)
-            .bind(alice_id.to_string())
-            .bind(bob_id.to_string())
-            .execute(server.database.pool())
-            .await
-            .unwrap();
+        sqlx::query(
+            "UPDATE memberships SET custom_role_id = $1 WHERE user_id = $2 OR user_id = $3",
+        )
+        .bind(&role)
+        .bind(alice_id.to_string())
+        .bind(bob_id.to_string())
+        .execute(server.database.pool())
+        .await
+        .unwrap();
 
         let general =
             column(&server.get(&owner, &format!("{base}/projects")).await, "id").remove(0);

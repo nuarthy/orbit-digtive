@@ -18,7 +18,6 @@ use sqlx::{Any, Transaction};
 use utoipa::ToSchema;
 
 use super::domains::parse_id;
-use crate::repositories::membership::parse_permissions;
 use super::ingest::MAIL_TOPIC;
 use super::labels::{Label, load_labels};
 use super::mailboxes::{Mailbox, Scope, load_mailboxes};
@@ -26,6 +25,7 @@ use super::search::{Folders, Selection, ThreadCursor, people, select_threads};
 use super::threads::{is_inside, mailbox_users};
 use super::{MailError, MailQuery, MailRepository};
 use crate::live::{LiveHub, NewEvent, Recipients};
+use crate::repositories::membership::parse_permissions;
 
 /// Threads in a page when the caller names no limit.
 pub const THREAD_PAGE_DEFAULT: usize = 50;

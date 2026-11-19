@@ -104,7 +104,7 @@ function GithubCardContent({ settings, workspaceId, save, remove, onPendingChang
                 Issue label
                 <InfoTip text="Add this label to a GitHub issue to create a task in this project. Create the label in GitHub first." />
               </Label>
-              <Input id="github-label" maxLength={50} value={label} onChange={(event) => setLabel(event.target.value)} />
+              <Input id="github-label" aria-label="Issue label" maxLength={50} value={label} onChange={(event) => setLabel(event.target.value)} />
             </div>
             {save.isError || remove.isError ? <p role="alert" className="text-xs text-destructive">{save.error instanceof Error ? save.error.message : remove.error instanceof Error ? remove.error.message : 'The GitHub connection could not be saved.'}</p> : null}
           </> : null}

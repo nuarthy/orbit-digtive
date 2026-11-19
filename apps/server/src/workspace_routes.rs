@@ -1094,8 +1094,7 @@ async fn set_member_custom_role(
     request_id: Option<Extension<RequestId>>,
     ApiJson(body): ApiJson<CustomRoleBody>,
 ) -> Result<StatusCode, ApiError> {
-    let instance =
-        format!("/api/v1/workspaces/{workspace_id}/members/{membership_id}/custom-role");
+    let instance = format!("/api/v1/workspaces/{workspace_id}/members/{membership_id}/custom-role");
     let session = authenticate(&state, &headers, &instance, request_id.as_ref()).await?;
     let workspace_id = parse_id(&workspace_id, &instance, request_id.as_ref())?;
     let membership_id = parse_id(&membership_id, &instance, request_id.as_ref())?;

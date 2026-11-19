@@ -57,10 +57,12 @@ test('a wire message becomes a chat message with millisecond times', () => {
     type: 'message.created',
     message: {
       id: 'm2',
+      blocks: null,
+      bot: null,
       conversationId: 'c1',
       threadRootId: 'm1',
       replyToId: 'm0',
-      replyTo: { id: 'm0', authorId: 'u1', body: 'Is it <@u2>?', sticker: false },
+      replyTo: { id: 'm0', authorId: 'u1', body: 'Is it <@u2>?', sticker: false, botName: null },
       forwarded: null,
       stickerId: null,
       sticker: null,

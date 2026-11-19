@@ -140,7 +140,7 @@ e2e:
     trap cleanup EXIT
     trap 'exit 0' INT TERM
     runner=(cargo run -q -p orbit-server --)
-    if [ -n "${ORBIT_BIN:-}" ]; then runner=("$ORBIT_BIN"); fi
+    if [ -n "${E2E_ORBIT_BIN:-}" ]; then runner=("$E2E_ORBIT_BIN"); fi
     setup_url=$(ORBIT_ENV=development "${runner[@]}" --database "$data_dir/orbit.sqlite" setup-token init --origin http://127.0.0.1:8888)
     ORBIT_ENV=development "${runner[@]}" --database "$data_dir/orbit.sqlite" --attachments "$data_dir/attachments" --backups "$data_dir/backups" serve --listen 127.0.0.1:18080 --origin http://127.0.0.1:8888 &
     server_pid=$!

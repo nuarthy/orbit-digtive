@@ -390,7 +390,8 @@ impl WorkspaceRepository {
             .into_iter()
             .map(workspace_from_row)
             .collect::<Result<Vec<_>, _>>()?;
-        self.add_project_permissions(user_id, &mut workspaces).await?;
+        self.add_project_permissions(user_id, &mut workspaces)
+            .await?;
         Ok(workspaces)
     }
 
@@ -401,7 +402,10 @@ impl WorkspaceRepository {
         user_id: Id,
         workspaces: &mut [WorkspaceRecord],
     ) -> Result<(), WorkspaceError> {
-        if workspaces.iter().all(|workspace| workspace.role != WorkspaceRole::Member) {
+        if workspaces
+            .iter()
+            .all(|workspace| workspace.role != WorkspaceRole::Member)
+        {
             return Ok(());
         }
         let rows: Vec<(String, String, String)> = sqlx::query_as(
@@ -419,15 +423,24 @@ impl WorkspaceRepository {
         .fetch_all(self.database.pool())
         .await?;
         for (workspace_id, project_id, permission) in rows {
-            let (Ok(workspace_id), Ok(project_id), Some(permission)) =
-                (workspace_id.parse::<Id>(), project_id.parse::<Id>(), Permission::parse(&permission))
+            let (Ok(workspace_id), Ok(project_id), Some(permission)) = (
+                workspace_id.parse::<Id>(),
+                project_id.parse::<Id>(),
+                Permission::parse(&permission),
+            ) else {
+                continue;
+            };
+            let Some(workspace) = workspaces
+                .iter_mut()
+                .find(|workspace| workspace.id == workspace_id)
             else {
                 continue;
             };
-            let Some(workspace) = workspaces.iter_mut().find(|workspace| workspace.id == workspace_id) else {
-                continue;
-            };
-            match workspace.project_permissions.iter_mut().find(|held| held.project_id == project_id) {
+            match workspace
+                .project_permissions
+                .iter_mut()
+                .find(|held| held.project_id == project_id)
+            {
                 Some(held) => held.permissions.push(permission),
                 None => workspace.project_permissions.push(ProjectPermissions {
                     project_id,
@@ -552,7 +565,8 @@ impl WorkspaceRepository {
         .await?
         .ok_or(WorkspaceError::NotFound)?;
         let mut workspaces = [workspace_from_row(row)?];
-        self.add_project_permissions(actor_id, &mut workspaces).await?;
+        self.add_project_permissions(actor_id, &mut workspaces)
+            .await?;
         let [workspace] = workspaces;
         Ok(workspace)
     }
@@ -2664,9 +2678,10 @@ fn custom_role_ref(
     let id = row.get::<Option<String>, _>("custom_role_id");
     let name = row.get::<Option<String>, _>("custom_role_name");
     match (id, name) {
-        (Some(id), Some(name)) if role == WorkspaceRole::Member => {
-            Ok(Some(CustomRoleRef { id: parse_id(id)?, name }))
-        }
+        (Some(id), Some(name)) if role == WorkspaceRole::Member => Ok(Some(CustomRoleRef {
+            id: parse_id(id)?,
+            name,
+        })),
         _ => Ok(None),
     }
 }

@@ -474,9 +474,7 @@ async fn a_mover_that_saw_attachments_off_keeps_the_record_once_they_are_on_agai
         .call("PUT", "/api/v1/admin/settings/s3", Some(s3_body().await))
         .await;
     assert_eq!(status, StatusCode::OK);
-    let options = |attachments: bool| {
-        json!({"attachments_in_s3": attachments, "backups_in_s3": false, "backup_schedule": "off"})
-    };
+    let options = |attachments: bool| json!({"attachments_in_s3": attachments, "backups_in_s3": false, "backup_schedule": "off"});
     let (status, _) = fixture
         .call("PUT", "/api/v1/admin/settings/storage", Some(options(true)))
         .await;
@@ -485,13 +483,30 @@ async fn a_mover_that_saw_attachments_off_keeps_the_record_once_they_are_on_agai
 
     // The mover checked the empty bucket while attachments were off; the root user turned them on before it
     // cleared the record.
-    assert!(!repository.files_bucket_emptied(&recorded, true).await.unwrap());
-    assert_eq!(repository.files_bucket().await.unwrap(), Some(recorded.clone()));
+    assert!(
+        !repository
+            .files_bucket_emptied(&recorded, true)
+            .await
+            .unwrap()
+    );
+    assert_eq!(
+        repository.files_bucket().await.unwrap(),
+        Some(recorded.clone())
+    );
 
     let (status, _) = fixture
-        .call("PUT", "/api/v1/admin/settings/storage", Some(options(false)))
+        .call(
+            "PUT",
+            "/api/v1/admin/settings/storage",
+            Some(options(false)),
+        )
         .await;
     assert_eq!(status, StatusCode::OK);
-    assert!(repository.files_bucket_emptied(&recorded, true).await.unwrap());
+    assert!(
+        repository
+            .files_bucket_emptied(&recorded, true)
+            .await
+            .unwrap()
+    );
     assert_eq!(repository.files_bucket().await.unwrap(), None);
 }

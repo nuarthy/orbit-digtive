@@ -33,7 +33,7 @@ const notification = (id: string, read: boolean) => ({
 function renderBell(element: ReactNode, items: ReturnType<typeof notification>[], { entry = '/tasks?workspace=workspace-1&project=project-r', readFails = false } = {}) {
   window.localStorage.clear()
   const client = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: Infinity } } })
-  client.setQueryData(queryKeys.workspaces, [{ id: 'workspace-1', name: 'Alpha', role: 'owner', permissions: [], version: 1 }])
+  client.setQueryData(queryKeys.workspaces, [{ id: 'workspace-1', name: 'Alpha', role: 'owner', permissions: [], project_permissions: [], version: 1 }])
   client.setQueryData(queryKeys.members('workspace-1'), [{
     id: 'user-owner', membershipId: 'm1', name: 'Owner', handle: 'owner', email: 'o@x',
     role: 'Owner', color: '#000', title: '', roleIds: [], can: NO_MEMBER_ABILITIES, version: 1,

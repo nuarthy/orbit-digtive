@@ -70,7 +70,7 @@ test('an operator with a workspace gets the workspace app', async () => {
 })
 
 test('in Orbit Cloud the app waits for the billing state, so the trial line does not appear late', async () => {
-  const workspace = { id: 'alpha', name: 'Alpha', role: 'owner', permissions: [], version: 1 }
+  const workspace = { id: 'alpha', name: 'Alpha', role: 'owner', permissions: [], project_permissions: [], version: 1 }
   let sendBilling = () => {}
   const billing = new Promise<void>((resolve) => { sendBilling = resolve })
   globalThis.fetch = (async (input: RequestInfo | URL) => {

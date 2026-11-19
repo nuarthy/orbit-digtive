@@ -8,7 +8,7 @@ import { OnboardingPage } from './OnboardingPage'
 const originalFetch = globalThis.fetch
 afterEach(() => { globalThis.fetch = originalFetch })
 
-const WORKSPACE = { id: 'ws-1', name: 'Acme', role: 'owner', permissions: [], version: 0 }
+const WORKSPACE = { id: 'ws-1', name: 'Acme', role: 'owner', permissions: [], project_permissions: [], version: 0 }
 const PROJECT = { id: 'p-1', name: 'General', key: 'GEN', color: '#5e6ad2', version: 0, auto_close_parent: true, auto_close_sub_issues: true, created_at: '2026-10-08T10:00:00.000Z', updated_at: '2026-10-08T10:00:00.000Z' }
 
 function Location() {
