@@ -811,7 +811,7 @@ pub fn preset_filter(view: &str) -> Option<FilterGroup> {
     };
     let mine = || condition(FilterField::Assignee, FilterOperator::Is, json!(["me"]));
     let children = match view {
-        "mine" => vec![mine()],
+        "mine" | "my_calendar" => vec![mine()],
         "overdue" => vec![
             condition(
                 FilterField::DueDate,
@@ -1883,7 +1883,7 @@ mod tests {
 
     #[test]
     fn presets_are_valid_fixed_trees() {
-        for name in ["mine", "overdue", "due_soon", "current_week", "my_week"] {
+        for name in ["mine", "my_calendar", "overdue", "due_soon", "current_week", "my_week"] {
             let preset = preset_filter(name).unwrap();
             assert_eq!(preset.op, GroupOp::And);
             validate_filter(&preset).unwrap();
@@ -1902,6 +1902,7 @@ mod tests {
         let mine = json!({ "field": "assignee", "operator": "is", "value": ["me"] });
         for (name, children) in [
             ("mine", json!([mine.clone()])),
+            ("my_calendar", json!([mine.clone()])),
             (
                 "overdue",
                 json!([

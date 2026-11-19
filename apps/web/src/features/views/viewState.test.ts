@@ -41,6 +41,7 @@ test('the default display matches the spec and every default is a fresh copy', (
 test('preset filters match the spec table', () => {
   expect(PRESET_FILTERS).toEqual({
     mine: { op: 'and', children: [me] },
+    my_calendar: { op: 'and', children: [me] },
     overdue: { op: 'and', children: [{ field: 'due_date', operator: 'before', value: { relative: 'today' } }, notDone] },
     due_soon: { op: 'and', children: [{ field: 'due_date', operator: 'between', value: [{ relative: 'today' }, { relative: 'today', offset_days: 6 }] }, notDone] },
     current_week: { op: 'and', children: [thisWeek, notDone] },
@@ -49,7 +50,7 @@ test('preset filters match the spec table', () => {
 })
 
 test('preset names and page keys', () => {
-  expect(['mine', 'overdue', 'due_soon', 'current_week', 'my_week'].every((name) => isTaskPreset(name))).toBeTrue()
+  expect(['mine', 'my_calendar', 'overdue', 'due_soon', 'current_week', 'my_week'].every((name) => isTaskPreset(name))).toBeTrue()
   expect(isTaskPreset('all')).toBeFalse()
   expect(isTaskPreset(null)).toBeFalse()
   expect(isTaskPreset(undefined)).toBeFalse()

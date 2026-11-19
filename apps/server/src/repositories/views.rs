@@ -695,7 +695,7 @@ fn encode_state(state: &ViewState) -> Result<String, TaskError> {
     serde_json::to_string(state).map_err(|_| TaskError::Invalid { field: "state" })
 }
 
-/// `all` | `project:<uuidv7>` | `preset:(mine|overdue|due_soon|current_week|my_week)`.
+/// `all` | `project:<uuidv7>` | `preset:(mine|my_calendar|overdue|due_soon|current_week|my_week)`.
 fn check_page_key(page_key: &str) -> Result<(), TaskError> {
     let valid = match page_key.split_once(':') {
         None => page_key == "all",

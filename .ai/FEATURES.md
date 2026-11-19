@@ -37,6 +37,10 @@ Core files: `TasksPage.tsx`, `components/TaskList.tsx`, `components/TaskBoard.ts
 - Sidebar project order is per member (`project_positions`, migration 0099, `GET`/`PUT /project-order`): drag a project row or press Alt+Arrow on it (web), long-press → Move up / Move down (mobile drawer). Projects not placed yet follow by name; the API project list stays by name.
 - The task-list title is a project picker: All tasks or any project can be selected without opening the project rail.
 - List and Kanban layouts share filtering and sorting.
+- My calendar (web and mobile): a per-user month view under My work. Tasks assigned to the viewer appear on the days
+  they span from `due_start_at` to `due_at`, with the duration shown on each bar and exact times in its tooltip; tasks
+  without dates are counted below the grid. Weeks have a fixed height: three task lanes plus an overflow row; extra
+  tasks for a day collect under "+N more", which opens every task for that day with its full range and duration.
 - Sorting: manual, priority, created, updated, title.
 - Board cards support cross-status and within-column drag placement with a visible placeholder.
 - Inline status and priority changes avoid opening task detail.

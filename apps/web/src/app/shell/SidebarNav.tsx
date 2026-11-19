@@ -202,6 +202,7 @@ const linkArea = (pathname: string): 'tasks' | 'project-settings' | null =>
 /** The task pages ("presets") of the URL's `view`, as the old Personal section listed them. */
 const TASK_PRESETS = [
   { view: 'mine', label: 'My tasks', icon: SquareCheck },
+  { view: 'my_calendar', label: 'My calendar', icon: Calendar },
   { view: 'current_week', label: 'This week', icon: Calendar },
   { view: 'my_week', label: 'My week', icon: CalendarTick },
   { view: 'overdue', label: 'Overdue', icon: Danger },

@@ -7,9 +7,11 @@ import {
   dayDiff,
   defaultDateProperty,
   localeWeekStart,
+  millisSpan,
   monthTitle,
   moveDate,
   placeRows,
+  placeSpans,
   rowSpan,
   startTime,
   undatedRows,
@@ -67,6 +69,31 @@ describe('rowSpan', () => {
     expect(rowSpan(database.rows[3]!, due, ctx.timeZone)).toEqual({ start: '2026-11-02', end: '2026-11-12' })
     expect(rowSpan(database.rows[2]!, due, ctx.timeZone)).toBe(null)
     expect(undatedRows(database.rows, due, ctx.timeZone).map((row) => row.id)).toEqual(['r3'])
+  })
+})
+
+describe('millisSpan', () => {
+  const start = Date.parse('2026-11-20T09:00:00Z')
+  const end = Date.parse('2026-11-22T17:00:00Z')
+
+  test('either timestamp alone is a single day, and a reversed pair is ordered', () => {
+    expect(millisSpan(start, null, 'UTC')).toEqual({ start: '2026-11-20', end: '2026-11-20' })
+    expect(millisSpan(null, end, 'UTC')).toEqual({ start: '2026-11-22', end: '2026-11-22' })
+    expect(millisSpan(end, start, 'UTC')).toEqual({ start: '2026-11-20', end: '2026-11-22' })
+    expect(millisSpan(null, null, 'UTC')).toBe(null)
+  })
+})
+
+describe('placeSpans', () => {
+  test('a span crossing a week edge continues into the next week', () => {
+    const entries = [{ item: 'task', span: { start: '2026-11-20', end: '2026-11-22' } }]
+    const [thisWeek, nextWeek] = [calendarWeeks('2026-11-01', 0)[2]!, calendarWeeks('2026-11-01', 0)[3]!]
+    expect(placeSpans(entries, thisWeek)).toEqual([
+      { item: 'task', span: entries[0]!.span, column: 5, length: 2, lane: 0, continuesBefore: false, continuesAfter: true },
+    ])
+    expect(placeSpans(entries, nextWeek)).toEqual([
+      { item: 'task', span: entries[0]!.span, column: 0, length: 1, lane: 0, continuesBefore: true, continuesAfter: false },
+    ])
   })
 })
 

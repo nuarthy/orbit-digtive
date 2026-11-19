@@ -46,7 +46,7 @@ export type DisplayOptions = {
   sub_issues: 'nested' | 'flat' | 'hidden'
 }
 export type ViewState = { filter: FilterGroup; display: DisplayOptions }
-export type TaskPreset = 'mine' | 'overdue' | 'due_soon' | 'current_week' | 'my_week'
+export type TaskPreset = 'mine' | 'my_calendar' | 'overdue' | 'due_soon' | 'current_week' | 'my_week'
 export type PageKey = 'all' | `project:${string}` | `preset:${TaskPreset}`
 
 export const DEFAULT_DISPLAY: DisplayOptions = {
@@ -66,6 +66,7 @@ export const emptyFilter = (): FilterGroup => ({ op: 'and', children: [] })
 /** The preset pages' titles, which are also their chips' text. */
 export const PRESET_LABEL: Record<TaskPreset, string> = {
   mine: 'My tasks',
+  my_calendar: 'My calendar',
   overdue: 'Overdue',
   due_soon: 'Due soon',
   current_week: 'This week',
@@ -78,6 +79,7 @@ const dueThisWeek = (): Condition => ({ field: 'due_date', operator: 'between', 
 
 const PRESET_FILTERS: Record<TaskPreset, FilterGroup> = {
   mine: { op: 'and', children: [assignedToMe()] },
+  my_calendar: { op: 'and', children: [assignedToMe()] },
   overdue: { op: 'and', children: [{ field: 'due_date', operator: 'before', value: { relative: 'today' } }, notDone()] },
   due_soon: { op: 'and', children: [{ field: 'due_date', operator: 'between', value: [{ relative: 'today' }, { relative: 'today', offset_days: 6 }] }, notDone()] },
   current_week: { op: 'and', children: [dueThisWeek(), notDone()] },

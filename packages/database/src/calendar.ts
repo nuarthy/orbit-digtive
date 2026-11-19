@@ -1,4 +1,4 @@
-import { addDays, offsetMs, pointDay } from './dates'
+import { addDays, localDay, offsetMs, pointDay } from './dates'
 import type { DatePoint, DateProperty, DateValue, Property, Row, ViewContext } from './types'
 import { cellOf } from './values'
 
@@ -73,12 +73,23 @@ export function undatedRows(rows: readonly Row[], property: DateProperty, timeZo
   return rows.filter((row) => rowSpan(row, property, timeZone) === null)
 }
 
-/**
- * A row in one week: from `column` (0 to 6) for `length` days, in `lane` (0 is the top). A range that starts before
- * or ends after the week continues there.
- */
-export type CalendarBar = {
-  row: Row
+/** The local days a pair of timestamps covers, either one standing in for a missing end; `null` without either. */
+export function millisSpan(startMs: number | null | undefined, endMs: number | null | undefined, timeZone: string): DaySpan | null {
+  const first = startMs ?? endMs
+  const last = endMs ?? startMs
+  if (first == null || last == null) return null
+  const start = localDay(first, timeZone)
+  const end = localDay(last, timeZone)
+  if (!start || !end) return null
+  return start <= end ? { start, end } : { start: end, end: start }
+}
+
+/** An item and the days it occupies. */
+export type SpanEntry<T> = { item: T; span: DaySpan }
+
+/** A placed item in one week: columns 0–6 and lanes stacked from 0, with ranges continuing across week edges. */
+export type PlacedSpan<T> = {
+  item: T
   span: DaySpan
   column: number
   length: number
@@ -88,31 +99,42 @@ export type CalendarBar = {
 }
 
 /**
- * The rows that cover a day of `week`, as bars with lanes: earlier starts first, then longer ranges, then the view's
- * order; each bar takes the first lane free on all its days.
+ * The entries covering `week`, as bars with lanes: earlier starts first, then longer ranges, then the caller's order;
+ * each bar takes the first lane free on all its days. Shared by database calendars and task calendars.
  */
-export function placeRows(rows: readonly Row[], property: DateProperty, week: readonly string[], timeZone: string): CalendarBar[] {
+export function placeSpans<T>(entries: readonly SpanEntry<T>[], week: readonly string[]): PlacedSpan<T>[] {
   const first = week[0]!
   const last = week[week.length - 1]!
-  const items = rows.flatMap((row, order) => {
-    const span = rowSpan(row, property, timeZone)
-    return span && span.start <= last && span.end >= first ? [{ row, span, order }] : []
-  })
-  items.sort((a, b) => (a.span.start < b.span.start ? -1 : a.span.start > b.span.start ? 1 : 0) || dayDiff(a.span.end, b.span.end) || a.order - b.order)
+  const items = entries.filter(({ span }) => span.start <= last && span.end >= first)
+  items.sort((a, b) => (a.span.start < b.span.start ? -1 : a.span.start > b.span.start ? 1 : 0) || dayDiff(a.span.end, b.span.end))
   /** The last column each lane holds. */
   const laneEnds: number[] = []
-  return items.map(({ row, span }) => {
+  return items.map(({ item, span }) => {
     const column = span.start < first ? 0 : dayDiff(first, span.start)
     const end = span.end > last ? week.length - 1 : dayDiff(first, span.end)
     let lane = laneEnds.findIndex((taken) => taken < column)
     if (lane === -1) lane = laneEnds.length
     laneEnds[lane] = end
-    return { row, span, column, length: end - column + 1, lane, continuesBefore: span.start < first, continuesAfter: span.end > last }
+    return { item, span, column, length: end - column + 1, lane, continuesBefore: span.start < first, continuesAfter: span.end > last }
   })
 }
 
+/**
+ * A row in one week: from `column` (0 to 6) for `length` days, in `lane` (0 is the top). A range that starts before
+ * or ends after the week continues there.
+ */
+export type CalendarBar = Omit<PlacedSpan<Row>, 'item'> & { row: Row }
+
+/** The rows that cover a day of `week`, as bars with lanes. */
+export function placeRows(rows: readonly Row[], property: DateProperty, week: readonly string[], timeZone: string): CalendarBar[] {
+  return placeSpans(rows.flatMap((row): SpanEntry<Row>[] => {
+    const span = rowSpan(row, property, timeZone)
+    return span ? [{ item: row, span }] : []
+  }), week).map(({ item, ...bar }) => ({ ...bar, row: item }))
+}
+
 /** The bars that cover `column`, in lane order. */
-export function barsOn(bars: readonly CalendarBar[], column: number): CalendarBar[] {
+export function barsOn<T extends { column: number; length: number; lane: number }>(bars: readonly T[], column: number): T[] {
   return bars.filter((bar) => bar.column <= column && bar.column + bar.length > column).sort((a, b) => a.lane - b.lane)
 }
 

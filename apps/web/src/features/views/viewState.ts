@@ -18,10 +18,10 @@ export type ShowCompleted = 'all' | 'past_week' | 'past_month' | 'none'
 export type SubIssuesMode = 'nested' | 'flat' | 'hidden'
 export type DisplayOptions = { layout: Layout; group_by: GroupBy; sub_group_by: GroupBy; order_by: OrderBy; order_direction: 'asc' | 'desc'; properties: TaskProperty[]; show_completed: ShowCompleted; show_empty_groups: boolean; sub_issues: SubIssuesMode }
 export type ViewState = { filter: FilterGroup; display: DisplayOptions }
-export type TaskPreset = 'mine' | 'overdue' | 'due_soon' | 'current_week' | 'my_week'
+export type TaskPreset = 'mine' | 'overdue' | 'due_soon' | 'current_week' | 'my_week' | 'my_calendar'
 export type PageKey = 'all' | `project:${string}` | `preset:${TaskPreset}`
 
-export const TASK_PRESETS: readonly TaskPreset[] = ['mine', 'overdue', 'due_soon', 'current_week', 'my_week']
+export const TASK_PRESETS: readonly TaskPreset[] = ['mine', 'my_calendar', 'overdue', 'due_soon', 'current_week', 'my_week']
 /** Canonical property order; `normalizeDisplay` sorts `display.properties` into it. */
 export const TASK_PROPERTIES: readonly TaskProperty[] = ['id', 'status', 'assignee', 'priority', 'project', 'milestone', 'cycle', 'estimate', 'due_date', 'labels', 'created', 'updated', 'sub_issue_progress']
 
@@ -53,6 +53,7 @@ const dueThisWeek = (): Condition => ({ field: 'due_date', operator: 'between', 
 /** Built-in pages as fixed filter trees (spec §1 "Built-in presets"). Treat as read-only. */
 export const PRESET_FILTERS: Record<TaskPreset, FilterGroup> = {
   mine: { op: 'and', children: [assignedToMe()] },
+  my_calendar: { op: 'and', children: [assignedToMe()] },
   overdue: { op: 'and', children: [{ field: 'due_date', operator: 'before', value: { relative: 'today' } }, notDone()] },
   due_soon: { op: 'and', children: [{ field: 'due_date', operator: 'between', value: [{ relative: 'today' }, { relative: 'today', offset_days: 6 }] }, notDone()] },
   current_week: { op: 'and', children: [dueThisWeek(), notDone()] },

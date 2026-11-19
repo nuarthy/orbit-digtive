@@ -65,6 +65,7 @@ export function drawerSections<T extends AreaLink>(area: SettingsArea, links: re
 /** The task presets of the URL's `view` (the web's `TASK_PRESETS`). */
 export const TASK_PRESETS = [
   { view: 'mine', label: 'My tasks', icon: 'tasks' },
+  { view: 'my_calendar', label: 'My calendar', icon: 'calendar' },
   { view: 'current_week', label: 'This week', icon: 'calendar' },
   { view: 'my_week', label: 'My week', icon: 'calendarTick' },
   { view: 'overdue', label: 'Overdue', icon: 'danger' },

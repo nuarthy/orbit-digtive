@@ -7,6 +7,7 @@ import { TextInput } from '../../../ui/scaled'
 import { NewTaskDialog, type NewTaskDefaults } from '../../../components/NewTaskDialog'
 import { TaskRow } from '../../../components/TaskRow'
 import { FilterBar } from '../../../components/tasks/FilterBar'
+import { TaskCalendar } from '../../../components/tasks/TaskCalendar'
 import { keys } from '../../../data/keys'
 import { groupTasksByStatus, type StatusGroup } from '../../../data/tasks'
 import {
@@ -177,6 +178,8 @@ export default function TasksScreen() {
         ) : (
           <LoadingView />
         )
+      ) : preset === 'my_calendar' ? (
+        <TaskCalendar tasks={tasks.data} onOpen={(id) => router.push(`/tasks/${id}`)} />
       ) : (
         <SectionList
           sections={sections}

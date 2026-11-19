@@ -97,6 +97,7 @@ export const MAX_FILTER_VALUES = 100
 /** Chip text for the non-removable preset scope. */
 export const PRESET_LABEL: Record<TaskPreset, string> = {
   mine: 'My tasks',
+  my_calendar: 'My calendar',
   overdue: 'Overdue',
   due_soon: 'Due soon',
   current_week: 'This week',
