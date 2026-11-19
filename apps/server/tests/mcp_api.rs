@@ -166,6 +166,7 @@ async fn create_task(
                 position: None,
                 assignee_ids: vec![],
                 label_ids: vec![],
+                supervisor_id: None,
                 due_start_at: None,
                 due_at: None,
                 parent_task_id: None,

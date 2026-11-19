@@ -4294,6 +4294,7 @@ fn filter_task(project: Id, status: Id, title: &str) -> CreateTask {
         position: None,
         assignee_ids: Vec::new(),
         label_ids: Vec::new(),
+        supervisor_id: None,
         due_start_at: None,
         due_at: None,
         parent_task_id: None,
