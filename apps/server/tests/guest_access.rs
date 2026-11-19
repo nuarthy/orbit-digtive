@@ -178,13 +178,36 @@ struct Records {
 
 impl Records {
     fn id(&self, name: &str, path: &str) -> String {
-        let key = match name {
-            "comment_id" if path.contains("/pages/") => "page_comment_id",
-            "user_id" | "user_ids" | "member_ids" | "assignee_ids" | "mentioned_user_ids" => {
-                "user_id"
+        let key = if path.contains("/trash/") {
+            match name {
+                "page_id" => "trashed_page_id",
+                "project_id" => "trashed_project_id",
+                "task_id" => "trashed_task_id",
+                other => other,
             }
-            "id" => "random",
-            other => other,
+        } else if path.contains("/databases/") {
+            match name {
+                "property_id" if path.contains("/press/") => "database_button_id",
+                "property_id" | "property_ids" => "database_property_id",
+                "row_id" => "database_row_id",
+                "row_ids" => "trash_database_row_id",
+                "view_id" if path.contains("/forms/") => "database_form_view_id",
+                "view_id" | "view_ids" | "from_view_id" => "database_view_id",
+                "template_id" => "database_template_id",
+                "link_id" => "database_link_id",
+                other => other,
+            }
+        } else if path.contains("/webhooks/") && !path.contains("/chat/") && name == "webhook_id" {
+            "workspace_webhook_id"
+        } else {
+            match name {
+                "comment_id" if path.contains("/pages/") => "page_comment_id",
+                "user_id" | "user_ids" | "member_ids" | "assignee_ids" | "mentioned_user_ids" => {
+                    "user_id"
+                }
+                "id" => "random",
+                other => other,
+            }
         };
         self.ids
             .get(key)
@@ -322,6 +345,18 @@ fn first_id(list: &Value) -> String {
     rows[0]["id"].as_str().unwrap().to_owned()
 }
 
+/// The id of the named row of a list of records.
+fn named_id(list: &Value, name: &str) -> String {
+    list.as_array()
+        .unwrap()
+        .iter()
+        .find(|row| row["name"] == name)
+        .unwrap()["id"]
+        .as_str()
+        .unwrap()
+        .to_owned()
+}
+
 struct Operation {
     method: String,
     template: String,
@@ -429,6 +464,52 @@ fn body_for(operation: &str, records: &Records) -> Option<Value> {
         }
         "bulk_tasks" => json!({"updates": [{"id": id("task_id"), "expected_version": 0}]}),
         "create_task_relation" => json!({"type": "blocks", "task_id": id("other_task_id")}),
+        "set_project_grant" => json!({
+            "project_id": id("project_id"), "user_id": id("user_id"),
+            "permissions": ["projects.manage"]
+        }),
+        "put_project_order" => json!({"project_ids": [id("project_id")]}),
+        "create_cycle" => json!({
+            "name": "Sweep", "starts_at": "2026-01-01T00:00:00Z",
+            "ends_at": "2026-01-14T00:00:00Z"
+        }),
+        "update_cycle" => json!({"expected_version": 0}),
+        "reorder_milestones" => {
+            json!({"items": [{"id": id("milestone_id"), "expected_version": 0, "position": 1}]})
+        }
+        "update_milestone" => json!({"expected_version": 0, "name": "Sweep renamed"}),
+        "update_role" => json!({"expected_version": 0}),
+        "create_database_from_csv" => json!({
+            "title": "Sweep CSV", "title_column": 0,
+            "columns": [{"name": "Name", "target": {"new": "text"}}],
+            "rows": [["Sweep row"]]
+        }),
+        "import_database_csv" => json!({
+            "columns": [{"name": "Name", "target": {"property_id": id("database_title_property_id")}}],
+            "rows": [["Sweep imported row"]]
+        }),
+        "submit_database_form" => json!({"answers": {}}),
+        "preview_database_formula" => json!({"expression": "1"}),
+        "create_database_property" => json!({"name": "Sweep", "type": "text"}),
+        "update_database_property" => json!({"name": "Sweep renamed"}),
+        "create_database_view" => json!({"name": "Sweep", "type": "table"}),
+        "update_database_view" => json!({"name": "Sweep renamed"}),
+        "create_database_link" => json!({
+            "host_page_id": id("host_page_id"), "from_view_id": id("database_view_id")
+        }),
+        "create_database_row" => json!({"title": "Sweep row"}),
+        "update_database_row_values" => json!({}),
+        "trash_database_rows" => json!({"row_ids": [id("trash_database_row_id")]}),
+        "move_database_row" => json!({"after_row_id": null}),
+        "press_database_button" => json!({}),
+        "create_database_template" => json!({"name": "Sweep"}),
+        "update_database_template" => json!({"name": "Sweep renamed"}),
+        "create_webhook" => json!({
+            "name": "Sweep", "url": "https://hooks.example.com/sweep",
+            "event_types": ["task.created"], "project_ids": [id("project_id")]
+        }),
+        "update_webhook" => json!({"name": "Sweep renamed"}),
+        "start_orbit_import" => json!({"selection": {}}),
         _ => return None,
     })
 }
@@ -456,8 +537,10 @@ const UNCHECKED: &[&str] = &[
     "download_comment_attachment",
     "create_obsidian_import",
     "delete_storage_file",
+    "upload_orbit_import",
     // Imports check their token with the outside service first.
     "create_asana_import",
+    "create_orbit_import",
     "get_asana_import",
     "cancel_asana_import",
     "start_asana_import",
@@ -527,7 +610,7 @@ async fn a_guest_reaches_only_chat() {
     let workspace = setup.workspace_id.to_string();
     let base = format!("/api/v1/workspaces/{workspace}");
     let (member_id, _) = server.person(&workspace, "member", Some("member")).await;
-    let (_, admin) = server.person(&workspace, "admin", Some("admin")).await;
+    let (admin_id, admin) = server.person(&workspace, "admin", Some("admin")).await;
     let (guest_id, guest) = server.person(&workspace, "guest", Some("guest")).await;
 
     // Records the guest must not reach, made by the owner.
@@ -722,6 +805,264 @@ async fn a_guest_reaches_only_chat() {
             )
             .await,
     );
+    // Records the newer routes need, made where needed by the admin so the admin sweep sees the
+    // same private records a guest must not reach.
+    let database = id_of(
+        &server
+            .ok(
+                &admin,
+                "POST",
+                &format!("{base}/pages"),
+                json!({"kind": "database", "title": "Secret database", "private": true}),
+            )
+            .await,
+    );
+    let host_page = id_of(
+        &server
+            .ok(
+                &admin,
+                "POST",
+                &format!("{base}/pages"),
+                json!({"title": "Secret link host", "private": true}),
+            )
+            .await,
+    );
+    let database_detail = server
+        .ok(
+            &admin,
+            "GET",
+            &format!("{base}/databases/{database}"),
+            Value::Null,
+        )
+        .await;
+    let database_title_property = named_id(&database_detail["properties"], "Name");
+    let database_view = first_id(&database_detail["views"]);
+    let database_property = id_of(
+        &server
+            .ok(
+                &admin,
+                "POST",
+                &format!("{base}/databases/{database}/properties"),
+                json!({"name": "Sweep text", "type": "text"}),
+            )
+            .await,
+    );
+    let database_button = id_of(
+        &server
+            .ok(
+                &admin,
+                "POST",
+                &format!("{base}/databases/{database}/properties"),
+                json!({"name": "Sweep button", "type": "button", "config": {"actions": []}}),
+            )
+            .await,
+    );
+    let database_form_view = id_of(
+        &server
+            .ok(
+                &admin,
+                "POST",
+                &format!("{base}/databases/{database}/views"),
+                json!({"name": "Sweep form", "type": "form", "config": {"form": {"questions": []}}}),
+            )
+            .await,
+    );
+    let database_row = id_of(
+        &server
+            .ok(
+                &admin,
+                "POST",
+                &format!("{base}/databases/{database}/rows"),
+                json!({"title": "Sweep row"}),
+            )
+            .await,
+    );
+    let trash_database_row = id_of(
+        &server
+            .ok(
+                &admin,
+                "POST",
+                &format!("{base}/databases/{database}/rows"),
+                json!({"title": "Trash row"}),
+            )
+            .await,
+    );
+    let database_template = id_of(
+        &server
+            .ok(
+                &admin,
+                "POST",
+                &format!("{base}/databases/{database}/templates"),
+                json!({"name": "Sweep template"}),
+            )
+            .await,
+    );
+    let database_link = id_of(
+        &server
+            .ok(
+                &admin,
+                "POST",
+                &format!("{base}/databases/{database}/links"),
+                json!({"host_page_id": host_page, "from_view_id": database_view}),
+            )
+            .await,
+    );
+    let cycle = id_of(
+        &server
+            .ok(
+                &owner,
+                "POST",
+                &format!("{base}/projects/{project}/cycles"),
+                json!({
+                    "name": "Sweep cycle", "starts_at": "2026-01-01T00:00:00Z",
+                    "ends_at": "2026-01-14T00:00:00Z"
+                }),
+            )
+            .await,
+    );
+    let milestone = id_of(
+        &server
+            .ok(
+                &owner,
+                "POST",
+                &format!("{base}/projects/{project}/milestones"),
+                json!({"name": "Sweep milestone"}),
+            )
+            .await,
+    );
+    let role = id_of(
+        &server
+            .ok(
+                &owner,
+                "POST",
+                &format!("{base}/roles"),
+                json!({"name": "Sweep", "permissions": ["projects.manage"]}),
+            )
+            .await,
+    );
+    server
+        .ok(
+            &owner,
+            "PUT",
+            &format!("{base}/project-grants"),
+            json!({
+                "project_id": project, "user_id": member_id.to_string(),
+                "permissions": ["projects.manage"]
+            }),
+        )
+        .await;
+    let trashed_page = id_of(
+        &server
+            .ok(
+                &admin,
+                "POST",
+                &format!("{base}/pages"),
+                json!({"title": "Trashed page", "private": true}),
+            )
+            .await,
+    );
+    server
+        .ok(
+            &admin,
+            "DELETE",
+            &format!("{base}/pages/{trashed_page}?expected_version=0"),
+            Value::Null,
+        )
+        .await;
+    let trashed_project = id_of(
+        &server
+            .ok(
+                &owner,
+                "POST",
+                &format!("{base}/projects"),
+                json!({"name": "Trash", "key": "TRH", "color": "#336699"}),
+            )
+            .await,
+    );
+    server
+        .ok(
+            &owner,
+            "DELETE",
+            &format!("{base}/projects/{trashed_project}?expected_version=0"),
+            Value::Null,
+        )
+        .await;
+    let trashed_task = id_of(
+        &server
+            .ok(
+                &owner,
+                "POST",
+                &format!("{base}/tasks"),
+                json!({"project_id": project, "status_id": status, "title": "Trashed task"}),
+            )
+            .await,
+    );
+    server
+        .ok(
+            &owner,
+            "DELETE",
+            &format!("{base}/tasks/{trashed_task}?expected_version=0"),
+            Value::Null,
+        )
+        .await;
+    let workspace_webhook = id_of(
+        &server
+            .ok(
+                &admin,
+                "POST",
+                &format!("{base}/webhooks"),
+                json!({
+                    "name": "Sweep hook", "url": "https://hooks.example.com/sweep",
+                    "event_types": ["task.created"], "project_ids": [project]
+                }),
+            )
+            .await,
+    );
+    // A task created after the subscription gives the delivery routes a real delivery.
+    server
+        .ok(
+            &admin,
+            "POST",
+            &format!("{base}/tasks"),
+            json!({"project_id": project, "status_id": status, "title": "Webhook task"}),
+        )
+        .await;
+    let delivery = sqlx::query_scalar::<_, String>(
+        "SELECT id FROM webhook_deliveries ORDER BY created_at, id LIMIT 1",
+    )
+    .fetch_one(server.database.pool())
+    .await
+    .unwrap();
+    let sweep_now = TimestampMillis::now().as_millis();
+    let import_person = Id::new_v7().to_string();
+    sqlx::query(
+        "INSERT INTO import_people (id, workspace_id, source, name, name_key, created_at, updated_at) \
+         VALUES ($1, $2, 'linear', 'Sweep', 'sweep', $3, $3)",
+    )
+    .bind(import_person.clone())
+    .bind(&workspace)
+    .bind(sweep_now)
+    .execute(server.database.pool())
+    .await
+    .unwrap();
+    let orbit_import = Id::new_v7().to_string();
+    sqlx::query(
+        "INSERT INTO orbit_imports (id, workspace_id, user_id, status, mode, source_kind, \
+         source_workspace_name, tree_json, created_at, updated_at) \
+         VALUES ($1, $2, $3, 'completed', 'full', 'upload', 'Sweep', $4, $5, $5)",
+    )
+    .bind(orbit_import.clone())
+    .bind(&workspace)
+    .bind(admin_id.to_string())
+    .bind(
+        json!({"projects": [], "teamspaces": [], "private_page_count": 0, "channels": []})
+            .to_string(),
+    )
+    .bind(sweep_now)
+    .execute(server.database.pool())
+    .await
+    .unwrap();
+
     server
         .ok(
             &admin,
@@ -790,6 +1131,28 @@ async fn a_guest_reaches_only_chat() {
             ("conversation_id", general),
             ("message_id", message.clone()),
             ("root_id", message),
+            ("database_id", database),
+            ("database_title_property_id", database_title_property),
+            ("database_property_id", database_property),
+            ("database_button_id", database_button),
+            ("database_view_id", database_view.clone()),
+            ("from_view_id", database_view),
+            ("database_form_view_id", database_form_view),
+            ("database_row_id", database_row),
+            ("trash_database_row_id", trash_database_row),
+            ("database_template_id", database_template),
+            ("database_link_id", database_link),
+            ("host_page_id", host_page),
+            ("cycle_id", cycle),
+            ("milestone_id", milestone),
+            ("role_id", role),
+            ("trashed_page_id", trashed_page),
+            ("trashed_project_id", trashed_project),
+            ("trashed_task_id", trashed_task),
+            ("workspace_webhook_id", workspace_webhook),
+            ("delivery_id", delivery),
+            ("person_id", import_person),
+            ("orbit_import_id", orbit_import),
         ]),
     };
     // A guest sees the avatar of someone in its channel, not of someone it shares nothing with.
