@@ -144,6 +144,7 @@ export function TaskDetail({ task, project, state, onClose, onOpenTask, onOpenPr
   const statusOptions = task ? projectStatuses(state.statuses, task.projectId) : []
   const assignees = users.filter((u) => task?.assigneeIds.includes(u.id))
   const supervisor = users.find((u) => u.id === task?.supervisorId)
+  const canChangeCompletionRule = task ? task.creatorId === state.currentUserId || task.supervisorId === state.currentUserId : false
   const deleteAndClose = async (input: { taskId: string; version: number }) => {
     try {
       await deleteTask.mutateAsync(input)
@@ -352,10 +353,10 @@ export function TaskDetail({ task, project, state, onClose, onOpenTask, onOpenPr
                 label="Supervisor"
                 placeholder="Set supervisor…"
                 emptyText="No people match"
-                tip="The supervisor and the assignees may mark this task complete. Select the same person again to clear it."
+                tip="The supervisor may mark this task complete; the assignees may too unless supervisor-only completion is on. Select the same person again to clear it."
                 options={audience.map(personOption)}
                 selected={task.supervisorId ? [task.supervisorId] : []}
-                onSelect={(id) => updateTask.mutate({ taskId: task.id, body: { expected_version: task.version, supervisor_id: task.supervisorId === id ? null : id } })}
+                onSelect={(id) => updateTask.mutate({ taskId: task.id, body: { expected_version: task.version, supervisor_id: task.supervisorId === id ? null : id, ...(task.supervisorId === id && task.supervisorOnlyCompletion ? { supervisor_only_completion: false } : {}) } })}
                 trigger={
                   <PropertyButton aria-label={`Supervisor: ${supervisor?.name ?? 'none'}`}>
                     {supervisor ? (
@@ -372,6 +373,16 @@ export function TaskDetail({ task, project, state, onClose, onOpenTask, onOpenPr
                   </PropertyButton>
                 }
               />
+              <Tip label={canChangeCompletionRule ? 'Only the supervisor may complete with this rule on. Click to switch; the creator and supervisor can change it at any time.' : 'Only the task creator or the supervisor can change the completion rule.'}>
+                <PropertyButton
+                  disabled={!canChangeCompletionRule}
+                  aria-label={`Completion rule: ${task.supervisorOnlyCompletion ? 'supervisor only' : 'assignee or supervisor'}`}
+                  onClick={() => updateTask.mutate({ taskId: task.id, body: { expected_version: task.version, supervisor_only_completion: !task.supervisorOnlyCompletion } })}
+                >
+                  <SquareCheck aria-hidden="true" className="text-muted-foreground" />
+                  <span className="truncate">{task.supervisorOnlyCompletion ? 'Supervisor-only completion' : 'Assignee or supervisor completes'}</span>
+                </PropertyButton>
+              </Tip>
               <MilestonePicker
                 milestones={milestones}
                 value={task.milestoneId ?? null}

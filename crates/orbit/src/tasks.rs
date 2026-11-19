@@ -24,6 +24,7 @@ pub struct Task {
     pub creator_id: Id,
     pub assignee_ids: Vec<Id>,
     pub supervisor_id: Option<Id>,
+    pub supervisor_only_completion: bool,
     pub version: u64,
     pub deleted_at: Option<TimestampMillis>,
 }
@@ -49,6 +50,7 @@ impl Task {
             creator_id,
             assignee_ids: Vec::new(),
             supervisor_id: None,
+            supervisor_only_completion: false,
             version: 0,
             deleted_at: None,
         }

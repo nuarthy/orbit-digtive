@@ -12,6 +12,7 @@ test('newTaskBody trims the text, leaves an empty description out, and sends eve
       priority: 'high',
       assigneeIds: ['u1'],
       supervisorId: 'u2',
+      supervisorOnlyCompletion: true,
       labelIds: ['l1', 'l2'],
       dueAt: '2026-10-25T07:00:00.000Z',
       dueStartAt: null,
@@ -27,6 +28,7 @@ test('newTaskBody trims the text, leaves an empty description out, and sends eve
     priority: 'high',
     assignee_ids: ['u1'],
     supervisor_id: 'u2',
+    supervisor_only_completion: true,
     label_ids: ['l1', 'l2'],
     due_at: '2026-10-25T07:00:00.000Z',
     due_start_at: null,
@@ -35,5 +37,5 @@ test('newTaskBody trims the text, leaves an empty description out, and sends eve
     cycle_id: null,
     estimate: 3,
   })
-  expect(newTaskBody({ title: 'x', description: ' Notes ', projectId: 'p', statusId: 's', priority: 'none', assigneeIds: [], supervisorId: null, labelIds: [], dueAt: null, dueStartAt: null, parentId: null, milestoneId: null, cycleId: null, estimate: null }).description).toBe('Notes')
+  expect(newTaskBody({ title: 'x', description: ' Notes ', projectId: 'p', statusId: 's', priority: 'none', assigneeIds: [], supervisorId: null, supervisorOnlyCompletion: false, labelIds: [], dueAt: null, dueStartAt: null, parentId: null, milestoneId: null, cycleId: null, estimate: null }).description).toBe('Notes')
 })

@@ -153,6 +153,8 @@ function changeRows(metadata: Record<string, unknown>, context: ActivityContext)
         return [{ field, text: typeof change.to === 'number' ? `set estimate to ${estimateLabel(change.to)}` : 'removed the estimate' }]
       case 'supervisor':
         return [{ field, text: to ? `set supervisor to ${names([to], context.people, 'another member')}` : 'removed the supervisor' }]
+      case 'completion_rule':
+        return [{ field, text: change.to === true ? 'made completion supervisor-only' : 'restored assignee completion' }]
       default:
         return []
     }

@@ -958,6 +958,9 @@ struct CreateTaskBody {
     /// The member who may complete this task in addition to its assignees.
     #[schema(value_type = Option<String>)]
     supervisor_id: Option<Id>,
+    /// When on, only the supervisor may complete the task; needs `supervisor_id`.
+    #[serde(default)]
+    supervisor_only_completion: bool,
     /// A task in an approved project: a UUID or an identifier such as `ENG-12`.
     parent_task_id: Option<String>,
     /// Needs `due_at` and must not be after it.
@@ -1024,6 +1027,8 @@ struct UpdateTaskBody {
     #[serde(default, deserialize_with = "present")]
     #[schema(value_type = Option<String>)]
     supervisor_id: Option<Option<Id>>,
+    /// Absent: unchanged. Only the creator or the current supervisor may change this.
+    supervisor_only_completion: Option<bool>,
     /// `null` clears the date.
     #[serde(default, deserialize_with = "present")]
     #[schema(value_type = Option<String>, format = DateTime)]
@@ -1608,6 +1613,7 @@ async fn create_task(
             assignee_ids: body.assignee_ids,
             label_ids: body.label_ids,
             supervisor_id: body.supervisor_id,
+            supervisor_only_completion: body.supervisor_only_completion,
             parent_task_id: api.optional_task_id(body.parent_task_id.as_deref()).await?,
             due_start_at: body.due_start_at,
             due_at: body.due_at,
@@ -1666,6 +1672,7 @@ async fn update_task(
             assignee_ids: body.assignee_ids,
             label_ids: body.label_ids,
             supervisor_id: body.supervisor_id,
+            supervisor_only_completion: body.supervisor_only_completion,
             due_start_at: body.due_start_at,
             due_at: body.due_at,
             parent_task_id: match body.parent_task_id {

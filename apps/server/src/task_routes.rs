@@ -1529,6 +1529,9 @@ struct CreateTaskBody {
     label_ids: Vec<String>,
     /// The member who may complete this task in addition to its assignees.
     supervisor_id: Option<String>,
+    /// When on, only the supervisor may complete the task; needs `supervisor_id`.
+    #[serde(default)]
+    supervisor_only_completion: bool,
     #[schema(value_type = Option<String>, format = DateTime)]
     due_start_at: Option<TimestampMillis>,
     #[schema(value_type = Option<String>, format = DateTime)]
@@ -1565,6 +1568,8 @@ struct TaskUpdateBody {
     #[serde(default, deserialize_with = "deserialize_patch")]
     #[schema(value_type = Option<String>)]
     supervisor_id: Option<Option<String>>,
+    /// Absent: unchanged. Only the creator or the current supervisor may change this.
+    supervisor_only_completion: Option<bool>,
     #[serde(default, deserialize_with = "deserialize_due_patch")]
     #[schema(value_type = Option<String>, format = DateTime)]
     due_start_at: Option<Option<TimestampMillis>>,
@@ -1621,6 +1626,8 @@ struct BulkItem {
     #[serde(default, deserialize_with = "deserialize_patch")]
     #[schema(value_type = Option<String>)]
     supervisor_id: Option<Option<String>>,
+    /// Absent: unchanged. Only the creator or the current supervisor may change this.
+    supervisor_only_completion: Option<bool>,
     #[serde(default, deserialize_with = "deserialize_due_patch")]
     #[schema(value_type = Option<String>, format = DateTime)]
     due_start_at: Option<Option<TimestampMillis>>,
@@ -2102,6 +2109,7 @@ async fn create_task(
         assignee_ids: parse_ids(body.assignee_ids, &instance, request_id.as_ref())?,
         label_ids: parse_ids(body.label_ids, &instance, request_id.as_ref())?,
         supervisor_id: optional_id(body.supervisor_id, &instance, request_id.as_ref())?,
+        supervisor_only_completion: body.supervisor_only_completion,
         due_start_at: body.due_start_at,
         due_at: body.due_at,
         parent_task_id: optional_id(body.parent_task_id, &instance, request_id.as_ref())?,
@@ -2193,6 +2201,7 @@ async fn bulk_tasks(
                     assignee_ids: item.assignee_ids,
                     label_ids: item.label_ids,
                     supervisor_id: item.supervisor_id,
+                    supervisor_only_completion: item.supervisor_only_completion,
                     due_start_at: item.due_start_at,
                     due_at: item.due_at,
                     duplicate_of_id: item.duplicate_of_id,
@@ -2771,6 +2780,7 @@ fn task_update(
                 .supervisor_id
                 .map(|value| optional_id(value, instance, request_id))
                 .transpose()?,
+            supervisor_only_completion: body.supervisor_only_completion,
             due_start_at: body.due_start_at,
             due_at: body.due_at,
             duplicate_of_id: body

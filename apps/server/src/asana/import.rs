@@ -1515,6 +1515,7 @@ impl AsanaImportService {
             assignee_ids: assignee.into_iter().collect(),
             label_ids: labels,
             supervisor_id: None,
+            supervisor_only_completion: false,
             due_start_at: start.map(TimestampMillis::from_millis),
             due_at: due_at.map(TimestampMillis::from_millis),
             parent_task_id: parent,

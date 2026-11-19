@@ -22,6 +22,7 @@ import {
   RecurrenceForm,
   SourceForm,
   StatusChoices,
+  CompletionRuleChoices,
   SupervisorChoices,
   TaskChoices,
 } from '../../../components/tasks/pickers'
@@ -65,7 +66,7 @@ import { Avatar, Button, ErrorView, Icon, IconButton, type IconName, KeyboardSpa
 
 /** The one sheet of the page and what it shows. */
 type TaskSheet =
-  | { kind: 'status' | 'priority' | 'assignees' | 'supervisor' | 'labels' | 'due' | 'repeat' | 'milestone' | 'cycle' | 'estimate' | 'source' | 'parent-menu' | 'relation-menu' | 'attach' }
+  | { kind: 'status' | 'priority' | 'assignees' | 'supervisor' | 'completion-rule' | 'labels' | 'due' | 'repeat' | 'milestone' | 'cycle' | 'estimate' | 'source' | 'parent-menu' | 'relation-menu' | 'attach' }
   | { kind: 'pick-task'; purpose: 'parent' | 'sub-issue' | RelationKind }
 
 function sheetTitle(sheet: TaskSheet | null, subject: string): string {
@@ -79,6 +80,8 @@ function sheetTitle(sheet: TaskSheet | null, subject: string): string {
       return 'Assignees'
     case 'supervisor':
       return 'Supervisor'
+    case 'completion-rule':
+      return 'Completion rule'
     case 'labels':
       return 'Labels'
     case 'due':
@@ -256,6 +259,8 @@ export default function TaskScreen() {
     </PaneHeader>
   )
 
+  const canChangeCompletionRule = current?.creator_id === user.id || current?.supervisor_id === user.id
+
   if (!current) {
     return (
       <SafeAreaView edges={['left', 'right']} className="flex-1 bg-background">
@@ -381,6 +386,10 @@ export default function TaskScreen() {
                 <Chip pull label={current.supervisor_id ? `Supervisor: ${nameOf(current.supervisor_id)}` : 'Set supervisor'} onPress={() => sheets.open({ kind: 'supervisor' })}>
                   {current.supervisor_id ? <Avatar id={current.supervisor_id} name={nameOf(current.supervisor_id)} size={16} /> : <Icon name="user" size={14} color={colors.mutedForeground} />}
                   <ChipText muted={!current.supervisor_id}>{current.supervisor_id ? nameOf(current.supervisor_id) : 'Supervisor'}</ChipText>
+                </Chip>
+                <Chip pull label={current.supervisor_only_completion ? 'Completion: Supervisor only' : 'Completion: Assignee or supervisor'} onPress={() => sheets.open({ kind: 'completion-rule' })}>
+                  <Icon name="check" size={14} color={current.supervisor_only_completion ? colors.primary : colors.mutedForeground} />
+                  <ChipText muted={!current.supervisor_only_completion}>{current.supervisor_only_completion ? 'Supervisor only' : 'Assignee or supervisor'}</ChipText>
                 </Chip>
               </View>
               <View className="flex-row mt-1 -ml-2">
@@ -541,7 +550,8 @@ export default function TaskScreen() {
           />
         ) : null}
         {sheet?.kind === 'assignees' ? <PeopleChoices people={people.filter((person) => seesProject(person.id))} value={current.assignee_ids} onChange={(ids) => write.mutate({ assignee_ids: ids })} /> : null}
-        {sheet?.kind === 'supervisor' ? <SupervisorChoices people={people.filter((person) => seesProject(person.id))} value={current.supervisor_id ?? null} onSelect={(supervisorId) => { sheets.close(); write.mutate({ supervisor_id: supervisorId }) }} /> : null}
+        {sheet?.kind === 'supervisor' ? <SupervisorChoices people={people.filter((person) => seesProject(person.id))} value={current.supervisor_id ?? null} onSelect={(supervisorId) => { sheets.close(); write.mutate({ supervisor_id: supervisorId, ...(!supervisorId && current.supervisor_only_completion ? { supervisor_only_completion: false } : {}) }) }} /> : null}
+        {sheet?.kind === 'completion-rule' ? <CompletionRuleChoices value={current.supervisor_only_completion ?? false} canChange={canChangeCompletionRule} onSelect={(supervisorOnly) => { sheets.close(); write.mutate({ supervisor_only_completion: supervisorOnly }) }} /> : null}
         {sheet?.kind === 'labels' ? <LabelChoices projectId={current.project_id} value={current.label_ids} onChange={(ids) => write.mutate({ label_ids: ids })} /> : null}
         {sheet?.kind === 'due' ? (
           <DueDateChoices

@@ -82,6 +82,20 @@ function SettingsLink({ projectId, onOpen }: { projectId: string; onOpen: () => 
   )
 }
 
+/** The task's completion rule; the creator and supervisor may switch it at any time. */
+export function CompletionRuleChoices({ value, canChange, onSelect }: { value: boolean; canChange: boolean; onSelect: (supervisorOnly: boolean) => void }) {
+  return (
+    <>
+      <SheetNote>With supervisor-only on, assignees cannot move the task to a completed status.</SheetNote>
+      <SheetList>
+        <SheetRow label="Assignee or supervisor" subtitle="Either may complete the task" checked={!value} onPress={() => { if (canChange) onSelect(false) }} />
+        <SheetRow label="Supervisor only" subtitle="Only the supervisor may complete" checked={value} onPress={() => { if (canChange) onSelect(true) }} />
+        {canChange ? null : <SheetNote tone="destructive">Only the task creator or the supervisor can change this rule.</SheetNote>}
+      </SheetList>
+    </>
+  )
+}
+
 /** One workspace member for a task's supervisor, with a clear row like the milestone and cycle pickers. */
 export function SupervisorChoices({ people, value, onSelect }: { people: readonly Person[]; value: string | null; onSelect: (supervisorId: string | null) => void }) {
   const [query, setQuery] = useState('')

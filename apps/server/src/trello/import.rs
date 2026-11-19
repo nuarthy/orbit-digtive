@@ -1481,6 +1481,7 @@ impl TrelloImportService {
             assignee_ids: text.assignees,
             label_ids: labels,
             supervisor_id: None,
+            supervisor_only_completion: false,
             due_start_at: card
                 .start
                 .as_deref()

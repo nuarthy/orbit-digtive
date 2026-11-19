@@ -32,7 +32,7 @@ import { errorMessage } from '../session-context'
 import { alpha, cssColors, useTheme } from '../theme'
 import { Avatar, Button, Icon, IconButton, type IconName, KeyboardSpace, PriorityIcon, StatusIcon, Text } from '../ui'
 import { type FileSource, pickFiles } from './tasks/files'
-import { CycleChoices, Dot, DueDateChoices, EstimateChoices, LabelChoices, MenuChoices, MilestoneChoices, PeopleChoices, PriorityChoices, StatusChoices, SupervisorChoices, TaskChoices } from './tasks/pickers'
+import { CompletionRuleChoices, CycleChoices, Dot, DueDateChoices, EstimateChoices, LabelChoices, MenuChoices, MilestoneChoices, PeopleChoices, PriorityChoices, StatusChoices, SupervisorChoices, TaskChoices } from './tasks/pickers'
 import { Sheet, SheetList, SheetRow, useSheet } from './tasks/Sheet'
 
 /** Relations a new task can have: a duplicate needs a canonical task, which it cannot be marked as before it exists. */
@@ -41,7 +41,7 @@ const PENDING_RELATIONS = RELATION_OPTIONS.filter((option): option is { kind: Pe
 const RELATION_LABEL: Record<PendingKind, string> = { blocks: 'Blocks', blocked_by: 'Blocked by', related: 'Related to' }
 
 type DialogSheet =
-  | { kind: 'project' | 'status' | 'priority' | 'assignees' | 'supervisor' | 'labels' | 'due' | 'milestone' | 'cycle' | 'estimate' | 'parent-menu' | 'relation-menu' | 'attach' }
+  | { kind: 'project' | 'status' | 'priority' | 'assignees' | 'supervisor' | 'completion-rule' | 'labels' | 'due' | 'milestone' | 'cycle' | 'estimate' | 'parent-menu' | 'relation-menu' | 'attach' }
   | { kind: 'pick-task'; purpose: 'parent' | PendingKind }
 
 function sheetTitle(sheet: DialogSheet | null): string {
@@ -57,6 +57,8 @@ function sheetTitle(sheet: DialogSheet | null): string {
       return 'Assignees'
     case 'supervisor':
       return 'Supervisor'
+    case 'completion-rule':
+      return 'Completion rule'
     case 'labels':
       return 'Labels'
     case 'due':
@@ -105,6 +107,7 @@ export function NewTaskDialog({ defaults, onClose }: { defaults: NewTaskDefaults
   const [priority, setPriority] = useState<Priority>('none')
   const [assigneeIds, setAssigneeIds] = useState<string[]>([])
   const [supervisorId, setSupervisorId] = useState<string | null>(null)
+  const [supervisorOnlyCompletion, setSupervisorOnlyCompletion] = useState(false)
   const [chosenLabelIds, setChosenLabelIds] = useState<string[]>([])
   const [due, setDue] = useState<DueRange | null>(null)
   const [milestoneId, setMilestoneId] = useState<string | null>(null)
@@ -136,7 +139,7 @@ export function NewTaskDialog({ defaults, onClose }: { defaults: NewTaskDefaults
       const task = await taskApi.createTaskWith(
         client,
         workspaceId,
-        taskApi.newTaskBody({ title, description: files.length > 0 ? '' : description, projectId: project.id, statusId: status.id, priority, assigneeIds, supervisorId, labelIds, dueAt: due?.end ?? null, dueStartAt: due?.start ?? null, parentId: parent?.id ?? null, milestoneId: milestone?.id ?? null, cycleId: cycle?.id ?? null, estimate }),
+        taskApi.newTaskBody({ title, description: files.length > 0 ? '' : description, projectId: project.id, statusId: status.id, priority, assigneeIds, supervisorId, supervisorOnlyCompletion, labelIds, dueAt: due?.end ?? null, dueStartAt: due?.start ?? null, parentId: parent?.id ?? null, milestoneId: milestone?.id ?? null, cycleId: cycle?.id ?? null, estimate }),
       )
       const problems: string[] = []
       if (relations.length > 0) {
@@ -281,6 +284,10 @@ export function NewTaskDialog({ defaults, onClose }: { defaults: NewTaskDefaults
                 {supervisor ? <Avatar id={supervisor.id} name={supervisor.name} size={14} /> : <Icon name="user" size={14} color={colors.mutedForeground} />}
                 <ChipText>{supervisor?.name ?? 'Supervisor'}</ChipText>
               </Chip>
+              <Chip label={supervisorOnlyCompletion ? 'Completion: Supervisor only' : 'Completion: Assignee or supervisor'} onPress={() => sheets.open({ kind: 'completion-rule' })}>
+                <Icon name="check" size={14} color={supervisorOnlyCompletion ? colors.primary : colors.mutedForeground} />
+                <ChipText>{supervisorOnlyCompletion ? 'Supervisor only' : 'Assignee or supervisor'}</ChipText>
+              </Chip>
               <Chip label={chosenLabels.length > 0 ? `Labels: ${chosenLabels.map((label) => label.name).join(', ')}` : 'Labels'} onPress={project ? () => sheets.open({ kind: 'labels' }) : undefined}>
                 {chosenLabels.length > 0 ? (
                   <View className="flex-row gap-0.5">
@@ -385,7 +392,8 @@ export function NewTaskDialog({ defaults, onClose }: { defaults: NewTaskDefaults
           />
         ) : null}
         {sheet?.kind === 'assignees' ? <PeopleChoices people={people.filter((person) => seesProject(person.id))} value={assigneeIds} onChange={setAssigneeIds} /> : null}
-        {sheet?.kind === 'supervisor' ? <SupervisorChoices people={people.filter((person) => seesProject(person.id))} value={supervisorId} onSelect={setSupervisorId} /> : null}
+        {sheet?.kind === 'supervisor' ? <SupervisorChoices people={people.filter((person) => seesProject(person.id))} value={supervisorId} onSelect={(id) => { setSupervisorId(id); if (!id) setSupervisorOnlyCompletion(false) }} /> : null}
+        {sheet?.kind === 'completion-rule' ? <CompletionRuleChoices value={supervisorOnlyCompletion && supervisorId !== null} canChange={supervisorId !== null} onSelect={setSupervisorOnlyCompletion} /> : null}
         {sheet?.kind === 'labels' && project ? <LabelChoices projectId={project.id} value={labelIds} onChange={setChosenLabelIds} /> : null}
         {sheet?.kind === 'due' ? (
           <DueDateChoices

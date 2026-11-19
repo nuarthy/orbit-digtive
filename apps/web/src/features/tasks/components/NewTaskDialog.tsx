@@ -6,6 +6,7 @@ import { apiClient } from '@/api/client'
 import { createTaskRelation, updateTask } from '@orbit/api/generated/sdk.gen'
 import { Button } from '@/components/ui/button'
 import { Tip } from '@/components/common/Tip'
+import { InfoTip } from '@/components/common/InfoTip'
 import { Dialog, DialogContent, DialogFooter, DialogTitle } from '@/components/ui/dialog'
 import {
   DropdownMenu,
@@ -89,6 +90,7 @@ export function NewTaskDialog({ defaults = {}, initialTitle = '', initialDescrip
     priority: (defaults.priority ?? 'none') as TaskPriority,
     assigneeIds: defaults.assignee_ids ?? [],
     supervisorId: null as string | null,
+    supervisorOnlyCompletion: false,
     labelIds: defaults.label_ids ?? [],
     dueAt: defaults.due_at ?? null,
     dueStartAt: defaults.due_start_at ?? null,
@@ -169,6 +171,7 @@ export function NewTaskDialog({ defaults = {}, initialTitle = '', initialDescrip
         priority: draft.priority,
         assignee_ids: draft.assigneeIds,
         supervisor_id: draft.supervisorId,
+        supervisor_only_completion: draft.supervisorOnlyCompletion,
         label_ids: labelIds,
         due_at: draft.dueAt,
         due_start_at: draft.dueStartAt,
@@ -456,10 +459,10 @@ export function NewTaskDialog({ defaults = {}, initialTitle = '', initialDescrip
               label="Supervisor"
               placeholder="Set supervisor…"
               emptyText="No people match"
-              tip="The supervisor and the assignees may mark this task complete. Select the same person again to clear it."
+              tip="The supervisor may mark this task complete; the assignees may too unless supervisor-only completion is on. Select the same person again to clear it."
               options={audience.map(personOption)}
               selected={draft.supervisorId ? [draft.supervisorId] : []}
-              onSelect={(id) => setDraft((current) => ({ ...current, supervisorId: current.supervisorId === id ? null : id }))}
+              onSelect={(id) => setDraft((current) => ({ ...current, supervisorId: current.supervisorId === id ? null : id, supervisorOnlyCompletion: current.supervisorId === id ? false : current.supervisorOnlyCompletion }))}
               trigger={
                 <Button type="button" variant="outline" size="sm" className="max-w-56 font-normal" aria-label={supervisor ? `Supervisor: ${supervisor.name}` : 'Supervisor'}>
                   {supervisor ? (
@@ -633,6 +636,17 @@ export function NewTaskDialog({ defaults = {}, initialTitle = '', initialDescrip
                   }}
                 />
                 Create more
+              </Label>
+              <Label className="inline-flex items-center gap-1.5 text-xs font-normal text-muted-foreground">
+                <InfoTip text="Only the supervisor may move the task to a completed status. The creator and supervisor can change this rule later. Pick a supervisor first." />
+                <Switch
+                  size="sm"
+                  aria-label="Supervisor-only completion"
+                  checked={draft.supervisorOnlyCompletion}
+                  disabled={!draft.supervisorId}
+                  onCheckedChange={(checked) => setDraft((current) => ({ ...current, supervisorOnlyCompletion: checked }))}
+                />
+                Supervisor-only completion
               </Label>
               <Tip label="Ctrl/⌘ + Enter">
                 <Button type="submit" disabled={!canCreate}>

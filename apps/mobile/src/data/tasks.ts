@@ -116,7 +116,7 @@ export const toggleId = (list: readonly string[], id: string): string[] => (list
 export type TaskPatch = Partial<
   Pick<
     TaskRecord,
-    'status_id' | 'priority' | 'assignee_ids' | 'label_ids' | 'supervisor_id' | 'due_at' | 'due_start_at' | 'source_url' | 'recurrence' | 'milestone_id' | 'cycle_id' | 'estimate'
+    'status_id' | 'priority' | 'assignee_ids' | 'label_ids' | 'supervisor_id' | 'supervisor_only_completion' | 'due_at' | 'due_start_at' | 'source_url' | 'recurrence' | 'milestone_id' | 'cycle_id' | 'estimate'
   >
 > & {
   parent_task_id?: string | null

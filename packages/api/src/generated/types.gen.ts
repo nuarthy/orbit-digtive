@@ -762,6 +762,10 @@ export type BulkItem = {
      * Absent: unchanged. A member id: set the supervisor. `null`: clear it.
      */
     supervisor_id?: string | null;
+    /**
+     * Absent: unchanged. Only the creator or the current supervisor may change this.
+     */
+    supervisor_only_completion?: boolean;
     title?: string | null;
 };
 
@@ -1810,6 +1814,10 @@ export type CreateTaskBody = {
      * The member who may complete this task in addition to its assignees.
      */
     supervisor_id?: string | null;
+    /**
+     * When on, only the supervisor may complete the task; needs `supervisor_id`.
+     */
+    supervisor_only_completion?: boolean;
     title: string;
 };
 
@@ -3440,6 +3448,10 @@ export type ListPublicTask = {
          * The member who may complete this task in addition to its assignees.
          */
         supervisor_id?: string | null;
+        /**
+         * Whether only the supervisor, rather than the assignees too, may complete this task.
+         */
+        supervisor_only_completion?: boolean;
         title: string;
         updated_at: string;
         /**
@@ -5936,6 +5948,10 @@ export type PageTaskRecord = {
          * The member who may complete this task in addition to its assignees.
          */
         supervisor_id?: string | null;
+        /**
+         * Whether only the supervisor, rather than the assignees too, may complete this task.
+         */
+        supervisor_only_completion?: boolean;
         title: string;
         /**
          * Task trash only: descendants trashed together with this task (restored with it).
@@ -6548,6 +6564,10 @@ export type PublicCreateTaskBody = {
      */
     supervisor_id?: string | null;
     /**
+     * When on, only the supervisor may complete the task; needs `supervisor_id`.
+     */
+    supervisor_only_completion?: boolean;
+    /**
      * 1 to 500 characters.
      */
     title: string;
@@ -7059,6 +7079,10 @@ export type PublicTask = {
      * The member who may complete this task in addition to its assignees.
      */
     supervisor_id?: string | null;
+    /**
+     * Whether only the supervisor, rather than the assignees too, may complete this task.
+     */
+    supervisor_only_completion?: boolean;
     title: string;
     updated_at: string;
     /**
@@ -7305,6 +7329,10 @@ export type PublicUpdateTaskBody = {
      * The member who may complete this task in addition to its assignees; `null` clears it.
      */
     supervisor_id?: string | null;
+    /**
+     * When on, only the supervisor may complete the task; needs `supervisor_id`.
+     */
+    supervisor_only_completion?: boolean;
     /**
      * 1 to 500 characters.
      */
@@ -8383,6 +8411,10 @@ export type TaskRecord = {
      * The member who may complete this task in addition to its assignees.
      */
     supervisor_id?: string | null;
+    /**
+     * Whether only the supervisor, rather than the assignees too, may complete this task.
+     */
+    supervisor_only_completion?: boolean;
     title: string;
     /**
      * Task trash only: descendants trashed together with this task (restored with it).
@@ -8517,6 +8549,10 @@ export type TaskUpdateBody = {
      * Absent: unchanged. A member id: set the supervisor. `null`: clear it.
      */
     supervisor_id?: string | null;
+    /**
+     * Absent: unchanged. Only the creator or the current supervisor may change this.
+     */
+    supervisor_only_completion?: boolean;
     title?: string | null;
 };
 

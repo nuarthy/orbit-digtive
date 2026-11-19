@@ -126,6 +126,8 @@ export function activityChangeText(
       return 'updated the source link'
     case 'recurrence':
       return recurrenceChangeText(change.rule)
+    case 'completion_rule':
+      return change.to ? 'made completion supervisor-only' : 'restored assignee completion'
     case 'supervisor':
       if (!change.to) return 'removed the supervisor'
       return `set supervisor to ${state.users.find((user) => user.id === change.to)?.name ?? 'another member'}`

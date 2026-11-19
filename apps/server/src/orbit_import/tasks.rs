@@ -662,6 +662,7 @@ async fn create_task(
             assignee_ids,
             label_ids,
             supervisor_id: None,
+            supervisor_only_completion: false,
             due_start_at: task
                 .due_start_at
                 .as_deref()

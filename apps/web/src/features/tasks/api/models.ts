@@ -70,6 +70,7 @@ export type TaskChange =
   | { field: 'recurrence'; rule: TaskRecurrence | null }
   | { field: 'milestone' | 'cycle' | 'supervisor'; from: string | null; to: string | null }
   | { field: 'estimate'; from: number | null; to: number | null }
+  | { field: 'completion_rule'; from: boolean; to: boolean }
 
 export interface TaskActivity {
   id: string
@@ -106,6 +107,8 @@ export interface Task {
   assigneeIds: string[]
   /** The member who may complete this task in addition to its assignees. */
   supervisorId?: string | null
+  /** When on, only the supervisor may complete the task. */
+  supervisorOnlyCompletion?: boolean
   creatorId?: string
   creatorServiceAccountId?: string
   creatorServiceAccountName?: string
@@ -246,6 +249,7 @@ function updateChanges(metadata: Record<string, unknown>, projectName: (projectI
     if (field === 'due') return [{ field, start: text(value.start) || null, end: text(value.end) || null }]
     if (field === 'milestone' || field === 'cycle' || field === 'supervisor') return [{ field, from: id(value.from), to: id(value.to) }]
     if (field === 'estimate') return [{ field, from: points(value.from), to: points(value.to) }]
+    if (field === 'completion_rule') return [{ field, from: value.from === true, to: value.to === true }]
     return []
   })
 }
@@ -332,6 +336,7 @@ export function taskFromRecord(
     priority,
     assigneeIds: record.assignee_ids,
     supervisorId: record.supervisor_id,
+    supervisorOnlyCompletion: record.supervisor_only_completion ?? false,
     creatorId: record.creator_id ?? undefined,
     creatorServiceAccountId: record.creator_service_account_id ?? undefined,
     creatorServiceAccountName: record.creator_service_account_name ?? undefined,

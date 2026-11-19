@@ -689,6 +689,7 @@ impl TaskTools {
                         assignee_ids,
                         label_ids,
                         supervisor_id: None,
+                        supervisor_only_completion: false,
                         parent_task_id,
                         due_start_at: None,
                         due_at: None,

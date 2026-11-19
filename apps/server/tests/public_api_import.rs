@@ -540,6 +540,7 @@ async fn relations_link_tasks_of_approved_projects() {
                 assignee_ids: vec![],
                 label_ids: vec![],
                 supervisor_id: None,
+                supervisor_only_completion: false,
                 due_start_at: None,
                 due_at: None,
                 parent_task_id: None,

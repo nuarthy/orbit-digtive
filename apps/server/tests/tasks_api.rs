@@ -4029,7 +4029,13 @@ async fn only_assignees_and_the_supervisor_may_complete_a_task() {
     let id = id_of(&task).to_owned();
     assert_eq!(task["supervisor_id"], supervisor_id.to_string());
 
-    async fn patch_status(fixture: &Fixture, cookie: &str, uri: &str, version: Value, status_id: &str) -> (StatusCode, Value) {
+    async fn patch_status(
+        fixture: &Fixture,
+        cookie: &str,
+        uri: &str,
+        version: Value,
+        status_id: &str,
+    ) -> (StatusCode, Value) {
         let response = fixture
             .app
             .clone()
@@ -4046,22 +4052,57 @@ async fn only_assignees_and_the_supervisor_may_complete_a_task() {
     }
 
     let uri = task_uri(&fixture, &id);
-    let (status, body) = patch_status(&fixture, &outsider_cookie, &uri, task["version"].clone(), &done).await;
+    let (status, body) = patch_status(
+        &fixture,
+        &outsider_cookie,
+        &uri,
+        task["version"].clone(),
+        &done,
+    )
+    .await;
     assert_eq!(status, StatusCode::FORBIDDEN);
     assert_eq!(body["code"], "task_completion_forbidden");
 
     // The owner created the task but is neither assignee nor supervisor.
-    let (status, _) = patch_status(&fixture, &fixture.owner_cookie, &uri, task["version"].clone(), &done).await;
+    let (status, _) = patch_status(
+        &fixture,
+        &fixture.owner_cookie,
+        &uri,
+        task["version"].clone(),
+        &done,
+    )
+    .await;
     assert_eq!(status, StatusCode::FORBIDDEN);
 
-    let (status, closed_by_supervisor) = patch_status(&fixture, &supervisor_cookie, &uri, task["version"].clone(), &done).await;
+    let (status, closed_by_supervisor) = patch_status(
+        &fixture,
+        &supervisor_cookie,
+        &uri,
+        task["version"].clone(),
+        &done,
+    )
+    .await;
     assert_eq!(status, StatusCode::OK);
 
     // Leaving Completed stays open to anyone who sees the task.
-    let (status, reopened) = patch_status(&fixture, &outsider_cookie, &uri, closed_by_supervisor["version"].clone(), &fixture.status_id).await;
+    let (status, reopened) = patch_status(
+        &fixture,
+        &outsider_cookie,
+        &uri,
+        closed_by_supervisor["version"].clone(),
+        &fixture.status_id,
+    )
+    .await;
     assert_eq!(status, StatusCode::OK);
 
-    let (status, closed_by_assignee) = patch_status(&fixture, &assignee_cookie, &uri, reopened["version"].clone(), &done).await;
+    let (status, closed_by_assignee) = patch_status(
+        &fixture,
+        &assignee_cookie,
+        &uri,
+        reopened["version"].clone(),
+        &done,
+    )
+    .await;
     assert_eq!(status, StatusCode::OK);
 
     // Clearing the supervisor takes their completion right away.
@@ -4079,10 +4120,164 @@ async fn only_assignees_and_the_supervisor_may_complete_a_task() {
     assert_eq!(clear.status(), StatusCode::OK);
     let cleared = response_json(clear).await;
     assert!(cleared["supervisor_id"].is_null());
-    let (status, reopened_after_clear) = patch_status(&fixture, &supervisor_cookie, &uri, cleared["version"].clone(), &fixture.status_id).await;
+    let (status, reopened_after_clear) = patch_status(
+        &fixture,
+        &supervisor_cookie,
+        &uri,
+        cleared["version"].clone(),
+        &fixture.status_id,
+    )
+    .await;
     assert_eq!(status, StatusCode::OK);
-    let (status, _) = patch_status(&fixture, &supervisor_cookie, &uri, reopened_after_clear["version"].clone(), &done).await;
+    let (status, _) = patch_status(
+        &fixture,
+        &supervisor_cookie,
+        &uri,
+        reopened_after_clear["version"].clone(),
+        &done,
+    )
+    .await;
     assert_eq!(status, StatusCode::FORBIDDEN);
+}
+
+#[tokio::test]
+async fn creator_and_supervisor_can_switch_the_completion_rule() {
+    let fixture = Fixture::new().await;
+    let (assignee_id, assignee_cookie) = add_member(&fixture, "assignee@example.com").await;
+    let (supervisor_id, supervisor_cookie) = add_member(&fixture, "supervisor@example.com").await;
+    let (_, outsider_cookie) = add_member(&fixture, "outsider@example.com").await;
+    let done = status_id_by_category(&fixture, &fixture.project_id, "completed").await;
+
+    async fn patch(
+        fixture: &Fixture,
+        cookie: &str,
+        uri: &str,
+        version: Value,
+        body: Value,
+    ) -> (StatusCode, Value) {
+        let mut value = body;
+        value["expected_version"] = version;
+        let response = fixture
+            .app
+            .clone()
+            .oneshot(json_request("PATCH", uri, cookie, value))
+            .await
+            .unwrap();
+        let status = response.status();
+        (status, response_json(response).await)
+    }
+
+    let created = fixture
+        .app
+        .clone()
+        .oneshot(json_request(
+            "POST",
+            &format!("/api/v1/workspaces/{}/tasks", fixture.workspace_id),
+            &fixture.owner_cookie,
+            json!({
+                "project_id": fixture.project_id,
+                "status_id": fixture.status_id,
+                "title": "Rule switch",
+                "assignee_ids": [assignee_id],
+                "supervisor_id": supervisor_id,
+            }),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(created.status(), StatusCode::CREATED);
+    let task = response_json(created).await;
+    let uri = task_uri(&fixture, id_of(&task));
+
+    // A supervisor-only rule with no supervisor is refused at creation and on update.
+    let missing = fixture
+        .app
+        .clone()
+        .oneshot(json_request(
+            "POST",
+            &format!("/api/v1/workspaces/{}/tasks", fixture.workspace_id),
+            &fixture.owner_cookie,
+            json!({
+                "project_id": fixture.project_id,
+                "status_id": fixture.status_id,
+                "title": "No supervisor",
+                "supervisor_only_completion": true,
+            }),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(missing.status(), StatusCode::UNPROCESSABLE_ENTITY);
+
+    let (status, switched) = patch(
+        &fixture,
+        &fixture.owner_cookie,
+        &uri,
+        task["version"].clone(),
+        json!({ "supervisor_only_completion": true }),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(switched["supervisor_only_completion"], true);
+
+    // The supervisor cannot be removed while the task depends on them for completion.
+    let (status, _) = patch(
+        &fixture,
+        &fixture.owner_cookie,
+        &uri,
+        switched["version"].clone(),
+        json!({ "supervisor_id": null }),
+    )
+    .await;
+    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
+
+    let (status, _) = patch(
+        &fixture,
+        &outsider_cookie,
+        &uri,
+        switched["version"].clone(),
+        json!({ "supervisor_only_completion": false }),
+    )
+    .await;
+    assert_eq!(status, StatusCode::FORBIDDEN);
+    let (status, _) = patch(
+        &fixture,
+        &assignee_cookie,
+        &uri,
+        switched["version"].clone(),
+        json!({ "supervisor_only_completion": false }),
+    )
+    .await;
+    assert_eq!(status, StatusCode::FORBIDDEN);
+    let (status, _) = patch(
+        &fixture,
+        &assignee_cookie,
+        &uri,
+        switched["version"].clone(),
+        json!({ "status_id": done }),
+    )
+    .await;
+    assert_eq!(status, StatusCode::FORBIDDEN);
+
+    let (status, completed) = patch(
+        &fixture,
+        &supervisor_cookie,
+        &uri,
+        switched["version"].clone(),
+        json!({ "status_id": done }),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+
+    // The supervisor can hand the rule back to the normal mode afterwards.
+    let (status, reverted) = patch(
+        &fixture,
+        &supervisor_cookie,
+        &uri,
+        completed["version"].clone(),
+        json!({ "supervisor_only_completion": false }),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(reverted["supervisor_only_completion"], false);
 }
 
 #[tokio::test]
@@ -4295,6 +4490,7 @@ fn filter_task(project: Id, status: Id, title: &str) -> CreateTask {
         assignee_ids: Vec::new(),
         label_ids: Vec::new(),
         supervisor_id: None,
+        supervisor_only_completion: false,
         due_start_at: None,
         due_at: None,
         parent_task_id: None,
