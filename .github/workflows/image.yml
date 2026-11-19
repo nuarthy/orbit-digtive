@@ -191,6 +191,10 @@ jobs:
           COOLIFY_TOKEN: ${{ secrets.COOLIFY_TOKEN }}
           COOLIFY_WEBHOOK: ${{ secrets.COOLIFY_WEBHOOK }}
         run: |
+          if [ -z "$COOLIFY_TOKEN" ] || [ -z "$COOLIFY_WEBHOOK" ]; then
+            echo "Coolify deploy skipped: this fork has no Coolify secrets configured"
+            exit 0
+          fi
           curl --fail-with-body --silent --show-error \
             --request POST \
             --header "Authorization: Bearer $COOLIFY_TOKEN" \
