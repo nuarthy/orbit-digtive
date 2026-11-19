@@ -86,15 +86,18 @@ export function TaskCalendar({ tasks, onOpen, onAdd }: TaskCalendarProps) {
                 <div className="absolute inset-0 grid grid-cols-7">
                   {week.map((day, column) => {
                     const hidden = barsOn(bars, column).filter((bar) => bar.lane >= MAX_LANES)
-                    return hidden.length === 0 ? null : (
+                    // Every day keeps a cell: CSS grid would move a lone overflow chip to column one.
+                    return (
                       <div key={day} className="relative">
-                        <div className="absolute bottom-0 left-0.5 right-0.5">
-                          <DayTasksPopover
-                            label={`+${hidden.length} more`}
-                            tasks={hidden.map((bar) => bar.item)}
-                            onOpen={onOpen}
-                          />
-                        </div>
+                        {hidden.length === 0 ? null : (
+                          <div className="absolute bottom-0 left-0.5 right-0.5">
+                            <DayTasksPopover
+                              label={`+${hidden.length} more`}
+                              tasks={hidden.map((bar) => bar.item)}
+                              onOpen={onOpen}
+                            />
+                          </div>
+                        )}
                       </div>
                     )
                   })}
