@@ -551,7 +551,7 @@ export default function TaskScreen() {
         ) : null}
         {sheet?.kind === 'assignees' ? <PeopleChoices people={people.filter((person) => seesProject(person.id))} value={current.assignee_ids} onChange={(ids) => write.mutate({ assignee_ids: ids })} /> : null}
         {sheet?.kind === 'supervisor' ? <SupervisorChoices people={people.filter((person) => seesProject(person.id))} value={current.supervisor_id ?? null} onSelect={(supervisorId) => { sheets.close(); write.mutate({ supervisor_id: supervisorId, ...(!supervisorId && current.supervisor_only_completion ? { supervisor_only_completion: false } : {}) }) }} /> : null}
-        {sheet?.kind === 'completion-rule' ? <CompletionRuleChoices value={current.supervisor_only_completion ?? false} canChange={canChangeCompletionRule && !write.isPending} onSelect={(supervisorOnly) => { sheets.close(); if (supervisorOnly !== (current.supervisor_only_completion ?? false)) write.mutate({ supervisor_only_completion: supervisorOnly }) }} /> : null}
+        {sheet?.kind === 'completion-rule' ? <CompletionRuleChoices value={current.supervisor_only_completion ?? false} canChange={canChangeCompletionRule && !write.isPending} supervisorAvailable={!!current.supervisor_id} onSelect={(supervisorOnly) => { sheets.close(); if (supervisorOnly !== (current.supervisor_only_completion ?? false)) write.mutate({ supervisor_only_completion: supervisorOnly }) }} /> : null}
         {sheet?.kind === 'labels' ? <LabelChoices projectId={current.project_id} value={current.label_ids} onChange={(ids) => write.mutate({ label_ids: ids })} /> : null}
         {sheet?.kind === 'due' ? (
           <DueDateChoices

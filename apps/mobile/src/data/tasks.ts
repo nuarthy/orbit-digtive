@@ -101,6 +101,8 @@ export const isVersionConflict = (error: unknown) => error instanceof ApiProblem
 
 export const isCompletionForbidden = (error: unknown) => error instanceof ApiProblem && error.code === 'task_completion_forbidden'
 
+export const isSupervisorRequired = (error: unknown) => error instanceof ApiProblem && error.problem.errors != null && 'supervisor_only_completion' in error.problem.errors
+
 // ---- properties
 
 /** The order of the priority menus (task detail and New task), as the web's. */

@@ -6,7 +6,7 @@ import { Alert } from 'react-native'
 import { keys } from '../data/keys'
 import * as api from '../data/orbit'
 import * as taskApi from '../data/task-api'
-import { isCompletionForbidden, isVersionConflict, optimisticTask, parentErrorMessage, replaceTask, type TaskPatch } from '../data/tasks'
+import { isCompletionForbidden, isSupervisorRequired, isVersionConflict, optimisticTask, parentErrorMessage, replaceTask, type TaskPatch } from '../data/tasks'
 import { useOrbit } from '../orbit-context'
 import { errorMessage } from '../session-context'
 
@@ -106,6 +106,7 @@ export function useTaskWrite(taskId: string) {
       void queryClient.invalidateQueries({ queryKey: taskKey })
       if (isVersionConflict(error)) Alert.alert('Task changed', 'Someone else changed this task. Showing the latest version; try again.')
       else if (isCompletionForbidden(error)) Alert.alert('Completion restricted', 'Only an assignee or the supervisor may complete this task.')
+      else if (isSupervisorRequired(error) && patch.supervisor_only_completion) Alert.alert('Supervisor needed', 'Choose a supervisor before enabling supervisor-only completion.')
       else if ('parent_task_id' in patch) Alert.alert('Could not change the parent', parentErrorMessage(error))
       else if ('duplicate_of_id' in patch) Alert.alert(patch.duplicate_of_id ? 'Couldn’t mark as duplicate' : 'Couldn’t unmark as duplicate', errorMessage(error))
       else Alert.alert('Task update failed', errorMessage(error))

@@ -83,13 +83,14 @@ function SettingsLink({ projectId, onOpen }: { projectId: string; onOpen: () => 
 }
 
 /** The task's completion rule; the creator and supervisor may switch it at any time. */
-export function CompletionRuleChoices({ value, canChange, onSelect }: { value: boolean; canChange: boolean; onSelect: (supervisorOnly: boolean) => void }) {
+export function CompletionRuleChoices({ value, canChange, supervisorAvailable, onSelect }: { value: boolean; canChange: boolean; supervisorAvailable: boolean; onSelect: (supervisorOnly: boolean) => void }) {
   return (
     <>
       <SheetNote>With supervisor-only on, assignees cannot move the task to a completed status.</SheetNote>
       <SheetList>
         <SheetRow label="Assignee or supervisor" subtitle="Either may complete the task" checked={!value} onPress={() => { if (canChange) onSelect(false) }} />
-        <SheetRow label="Supervisor only" subtitle="Only the supervisor may complete" checked={value} onPress={() => { if (canChange) onSelect(true) }} />
+        <SheetRow label="Supervisor only" subtitle={supervisorAvailable ? 'Only the supervisor may complete' : 'Choose a supervisor first'} checked={value} onPress={() => { if (canChange && supervisorAvailable) onSelect(true) }} />
+        {supervisorAvailable ? null : <SheetNote>Choose a supervisor in Properties first.</SheetNote>}
         {canChange ? null : <SheetNote tone="destructive">Only the task creator or the supervisor can change this rule.</SheetNote>}
       </SheetList>
     </>

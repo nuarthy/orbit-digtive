@@ -393,7 +393,7 @@ export function NewTaskDialog({ defaults, onClose }: { defaults: NewTaskDefaults
         ) : null}
         {sheet?.kind === 'assignees' ? <PeopleChoices people={people.filter((person) => seesProject(person.id))} value={assigneeIds} onChange={setAssigneeIds} /> : null}
         {sheet?.kind === 'supervisor' ? <SupervisorChoices people={people.filter((person) => seesProject(person.id))} value={supervisorId} onSelect={(id) => { setSupervisorId(id); if (!id) setSupervisorOnlyCompletion(false) }} /> : null}
-        {sheet?.kind === 'completion-rule' ? <CompletionRuleChoices value={supervisorOnlyCompletion && supervisorId !== null} canChange={supervisorId !== null} onSelect={setSupervisorOnlyCompletion} /> : null}
+        {sheet?.kind === 'completion-rule' ? <CompletionRuleChoices value={supervisorOnlyCompletion && supervisorId !== null} canChange={supervisorId !== null} supervisorAvailable={supervisorId !== null} onSelect={setSupervisorOnlyCompletion} /> : null}
         {sheet?.kind === 'labels' && project ? <LabelChoices projectId={project.id} value={labelIds} onChange={setChosenLabelIds} /> : null}
         {sheet?.kind === 'due' ? (
           <DueDateChoices
