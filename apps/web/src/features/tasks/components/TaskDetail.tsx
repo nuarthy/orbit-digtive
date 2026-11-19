@@ -373,17 +373,16 @@ export function TaskDetail({ task, project, state, onClose, onOpenTask, onOpenPr
                   </PropertyButton>
                 }
               />
-              <DropdownMenu>
-                <DropdownMenuTrigger
-                  render={
-                    <Tip label={canChangeCompletionRule ? 'Who may move this task to a completed status. Choose explicitly; the creator and supervisor can change it at any time.' : 'Only the task creator or the supervisor can change the completion rule.'}>
+              <Tip label={canChangeCompletionRule ? 'Who may move this task to a completed status. Choose explicitly; the creator and supervisor can change it at any time.' : 'Only the task creator or the supervisor can change the completion rule.'}>
+                <DropdownMenu>
+                  <DropdownMenuTrigger
+                    render={
                       <PropertyButton disabled={updateTask.isPending} aria-label={`Completion rule: ${task.supervisorOnlyCompletion ? 'supervisor only' : 'assignee or supervisor'}`}>
                         <SquareCheck aria-hidden="true" className="text-muted-foreground" />
                         <span className="truncate">{task.supervisorOnlyCompletion ? 'Supervisor-only completion' : 'Assignee or supervisor completes'}</span>
                       </PropertyButton>
-                    </Tip>
-                  }
-                />
+                    }
+                  />
                 <DropdownMenuContent className="w-auto min-w-60">
                   {[
                     { value: false, label: 'Assignee or supervisor', hint: 'Either may complete' },
@@ -408,7 +407,8 @@ export function TaskDetail({ task, project, state, onClose, onOpenTask, onOpenPr
                     </DropdownMenuItem>
                   ))}
                 </DropdownMenuContent>
-              </DropdownMenu>
+                </DropdownMenu>
+              </Tip>
               <MilestonePicker
                 milestones={milestones}
                 value={task.milestoneId ?? null}

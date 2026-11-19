@@ -636,16 +636,15 @@ export function NewTaskDialog({ defaults = {}, initialTitle = '', initialDescrip
                 />
                 Create more
               </Label>
-              <DropdownMenu>
-                <DropdownMenuTrigger
-                  render={
-                    <Tip label="Choose who may complete this task. Only the supervisor can when supervisor-only is on; pick a supervisor first.">
+              <Tip label="Choose who may complete this task. Only the supervisor can when supervisor-only is on; pick a supervisor first.">
+                <DropdownMenu>
+                  <DropdownMenuTrigger
+                    render={
                       <Button type="button" variant="outline" size="sm" className="font-normal" disabled={!draft.supervisorId} aria-label="Completion rule">
                         {draft.supervisorOnlyCompletion ? 'Supervisor only completes' : 'Assignee or supervisor completes'}
                       </Button>
-                    </Tip>
-                  }
-                />
+                    }
+                  />
                 <DropdownMenuContent className="w-auto min-w-60" align="end">
                   {[
                     { value: false, label: 'Assignee or supervisor', hint: 'Either may complete' },
@@ -665,7 +664,8 @@ export function NewTaskDialog({ defaults = {}, initialTitle = '', initialDescrip
                     </DropdownMenuItem>
                   ))}
                 </DropdownMenuContent>
-              </DropdownMenu>
+                </DropdownMenu>
+              </Tip>
               <Tip label="Ctrl/⌘ + Enter">
                 <Button type="submit" disabled={!canCreate}>
                   {uploading ? 'Attaching…' : createTask.isPending ? 'Creating…' : 'Create task'}
