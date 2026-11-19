@@ -3436,6 +3436,10 @@ export type ListPublicTask = {
         project_id: string;
         recurrence: null | TaskRecurrence;
         status_id: string;
+        /**
+         * The member who may complete this task in addition to its assignees.
+         */
+        supervisor_id?: string | null;
         title: string;
         updated_at: string;
         /**
@@ -6865,7 +6869,8 @@ export type PublicMe = {
     user: null | PublicUser;
     workspace: PublicNamed;
     /**
-     * Every workspace the token may use, with its access there. Always one item today.
+     * Every workspace the token may use, with its access there. An API token has one; an OAuth
+     * connection can have several.
      */
     workspaces: Array<PublicWorkspaceGrant>;
 };

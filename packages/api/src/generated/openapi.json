@@ -74926,6 +74926,13 @@
                     "status_id": {
                       "type": "string"
                     },
+                    "supervisor_id": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "description": "The member who may complete this task in addition to its assignees."
+                    },
                     "title": {
                       "type": "string"
                     },
@@ -83075,7 +83082,7 @@
             "items": {
               "$ref": "#/components/schemas/PublicWorkspaceGrant"
             },
-            "description": "Every workspace the token may use, with its access there. Always one item today."
+            "description": "Every workspace the token may use, with its access there. An API token has one; an OAuth\nconnection can have several."
           }
         }
       },
