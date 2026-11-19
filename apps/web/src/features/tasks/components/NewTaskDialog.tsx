@@ -6,7 +6,6 @@ import { apiClient } from '@/api/client'
 import { createTaskRelation, updateTask } from '@orbit/api/generated/sdk.gen'
 import { Button } from '@/components/ui/button'
 import { Tip } from '@/components/common/Tip'
-import { InfoTip } from '@/components/common/InfoTip'
 import { Dialog, DialogContent, DialogFooter, DialogTitle } from '@/components/ui/dialog'
 import {
   DropdownMenu,
@@ -637,17 +636,36 @@ export function NewTaskDialog({ defaults = {}, initialTitle = '', initialDescrip
                 />
                 Create more
               </Label>
-              <Label className="inline-flex items-center gap-1.5 text-xs font-normal text-muted-foreground">
-                <InfoTip text="Only the supervisor may move the task to a completed status. The creator and supervisor can change this rule later. Pick a supervisor first." />
-                <Switch
-                  size="sm"
-                  aria-label="Supervisor-only completion"
-                  checked={draft.supervisorOnlyCompletion}
-                  disabled={!draft.supervisorId}
-                  onCheckedChange={(checked) => setDraft((current) => ({ ...current, supervisorOnlyCompletion: checked }))}
+              <DropdownMenu>
+                <DropdownMenuTrigger
+                  render={
+                    <Tip label="Choose who may complete this task. Only the supervisor can when supervisor-only is on; pick a supervisor first.">
+                      <Button type="button" variant="outline" size="sm" className="font-normal" disabled={!draft.supervisorId} aria-label="Completion rule">
+                        {draft.supervisorOnlyCompletion ? 'Supervisor only completes' : 'Assignee or supervisor completes'}
+                      </Button>
+                    </Tip>
+                  }
                 />
-                Supervisor-only completion
-              </Label>
+                <DropdownMenuContent className="w-auto min-w-60" align="end">
+                  {[
+                    { value: false, label: 'Assignee or supervisor', hint: 'Either may complete' },
+                    { value: true, label: 'Supervisor only', hint: 'Only the supervisor may complete' },
+                  ].map((option) => (
+                    <DropdownMenuItem
+                      key={String(option.value)}
+                      className="data-selected:bg-accent data-selected:font-medium"
+                      data-selected={draft.supervisorOnlyCompletion === option.value || undefined}
+                      disabled={!draft.supervisorId}
+                      onClick={() => setDraft((current) => ({ ...current, supervisorOnlyCompletion: option.value }))}
+                    >
+                      <span className="flex flex-col">
+                        {option.label}
+                        <span className="text-xs text-muted-foreground">{option.hint}</span>
+                      </span>
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
               <Tip label="Ctrl/⌘ + Enter">
                 <Button type="submit" disabled={!canCreate}>
                   {uploading ? 'Attaching…' : createTask.isPending ? 'Creating…' : 'Create task'}

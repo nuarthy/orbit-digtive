@@ -373,16 +373,42 @@ export function TaskDetail({ task, project, state, onClose, onOpenTask, onOpenPr
                   </PropertyButton>
                 }
               />
-              <Tip label={canChangeCompletionRule ? 'Only the supervisor may complete with this rule on. Click to switch; the creator and supervisor can change it at any time.' : 'Only the task creator or the supervisor can change the completion rule.'}>
-                <PropertyButton
-                  disabled={!canChangeCompletionRule}
-                  aria-label={`Completion rule: ${task.supervisorOnlyCompletion ? 'supervisor only' : 'assignee or supervisor'}`}
-                  onClick={() => updateTask.mutate({ taskId: task.id, body: { expected_version: task.version, supervisor_only_completion: !task.supervisorOnlyCompletion } })}
-                >
-                  <SquareCheck aria-hidden="true" className="text-muted-foreground" />
-                  <span className="truncate">{task.supervisorOnlyCompletion ? 'Supervisor-only completion' : 'Assignee or supervisor completes'}</span>
-                </PropertyButton>
-              </Tip>
+              <DropdownMenu>
+                <DropdownMenuTrigger
+                  render={
+                    <Tip label={canChangeCompletionRule ? 'Who may move this task to a completed status. Choose explicitly; the creator and supervisor can change it at any time.' : 'Only the task creator or the supervisor can change the completion rule.'}>
+                      <PropertyButton disabled={updateTask.isPending} aria-label={`Completion rule: ${task.supervisorOnlyCompletion ? 'supervisor only' : 'assignee or supervisor'}`}>
+                        <SquareCheck aria-hidden="true" className="text-muted-foreground" />
+                        <span className="truncate">{task.supervisorOnlyCompletion ? 'Supervisor-only completion' : 'Assignee or supervisor completes'}</span>
+                      </PropertyButton>
+                    </Tip>
+                  }
+                />
+                <DropdownMenuContent className="w-auto min-w-60">
+                  {[
+                    { value: false, label: 'Assignee or supervisor', hint: 'Either may complete' },
+                    { value: true, label: 'Supervisor only', hint: 'Only the supervisor may complete' },
+                  ].map((option) => (
+                    <DropdownMenuItem
+                      key={String(option.value)}
+                      className="data-selected:bg-accent data-selected:font-medium"
+                      data-selected={task.supervisorOnlyCompletion === option.value || undefined}
+                      disabled={!canChangeCompletionRule || updateTask.isPending}
+                      onClick={() => {
+                        // Picking the current rule is a no-op: no request, no version bump.
+                        if (task.supervisorOnlyCompletion === option.value) return
+                        updateTask.mutate({ taskId: task.id, body: { expected_version: task.version, supervisor_only_completion: option.value } })
+                      }}
+                    >
+                      <SquareCheck aria-hidden="true" className="text-muted-foreground" />
+                      <span className="flex flex-col">
+                        {option.label}
+                        <span className="text-xs text-muted-foreground">{option.hint}</span>
+                      </span>
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
               <MilestonePicker
                 milestones={milestones}
                 value={task.milestoneId ?? null}
