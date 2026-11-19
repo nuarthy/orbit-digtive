@@ -33,6 +33,8 @@ test('activity sentences name the changed values', () => {
   expect(activityChangeText({ field: 'priority', from: 'none', to: 'high' }, state)).toBe('set priority to High')
   expect(activityChangeText({ field: 'priority', from: 'high', to: 'none' }, state)).toBe('removed priority')
   expect(activityChangeText({ field: 'assignees', added: ['u1'], removed: ['u2'] }, state)).toBe('assigned Ada and unassigned Bo')
+  expect(activityChangeText({ field: 'supervisor', from: null, to: 'u2' }, state)).toBe('set supervisor to Bo')
+  expect(activityChangeText({ field: 'supervisor', from: 'u2', to: null }, state)).toBe('removed the supervisor')
   expect(activityChangeText({ field: 'labels', added: [], removed: ['l1', 'gone'] }, state)).toBe('removed labels bug, a deleted label')
   expect(activityChangeText({ field: 'due', start: null, end: null }, state)).toBe('removed due date')
   expect(activityChangeText({ field: 'title', from: 'A', to: 'B' }, state)).toBe('changed title from "A" to "B"')

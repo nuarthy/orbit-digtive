@@ -68,7 +68,7 @@ export type TaskChange =
   | { field: 'title' | 'project'; from: string; to: string }
   | { field: 'description' | 'source_url' }
   | { field: 'recurrence'; rule: TaskRecurrence | null }
-  | { field: 'milestone' | 'cycle'; from: string | null; to: string | null }
+  | { field: 'milestone' | 'cycle' | 'supervisor'; from: string | null; to: string | null }
   | { field: 'estimate'; from: number | null; to: number | null }
 
 export interface TaskActivity {
@@ -244,7 +244,7 @@ function updateChanges(metadata: Record<string, unknown>, projectName: (projectI
     if (field === 'project') return [{ field, from: projectName(text(value.from)), to: projectName(text(value.to)) }]
     if (field === 'assignees' || field === 'labels') return [{ field, added: ids(value.added), removed: ids(value.removed) }]
     if (field === 'due') return [{ field, start: text(value.start) || null, end: text(value.end) || null }]
-    if (field === 'milestone' || field === 'cycle') return [{ field, from: id(value.from), to: id(value.to) }]
+    if (field === 'milestone' || field === 'cycle' || field === 'supervisor') return [{ field, from: id(value.from), to: id(value.to) }]
     if (field === 'estimate') return [{ field, from: points(value.from), to: points(value.to) }]
     return []
   })

@@ -126,6 +126,9 @@ export function activityChangeText(
       return 'updated the source link'
     case 'recurrence':
       return recurrenceChangeText(change.rule)
+    case 'supervisor':
+      if (!change.to) return 'removed the supervisor'
+      return `set supervisor to ${state.users.find((user) => user.id === change.to)?.name ?? 'another member'}`
     case 'milestone': {
       if (!change.to) return 'removed the milestone'
       return `set milestone to ${planning.milestones.find((milestone) => milestone.id === change.to)?.name ?? 'another milestone'}`
