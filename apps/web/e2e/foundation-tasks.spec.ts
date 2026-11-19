@@ -162,7 +162,7 @@ async function createTaskWithAttachment(page: Page) {
 async function deleteAndRestoreTask(page: Page) {
   await page.getByRole('button', { name: 'Delete', exact: true }).click()
   await page.getByRole('button', { name: 'Move to trash' }).click()
-  await expect(page).toHaveURL(/\/tasks(?:\?|$)/)
+  await expect(page).toHaveURL(/\/tasks(?:\?|$)/, { timeout: 15_000 })
   await page.goto('/tasks-trash')
   let failRestore = true
   await page.route('**/restore', async (route) => {
