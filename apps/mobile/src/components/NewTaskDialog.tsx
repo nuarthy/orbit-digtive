@@ -32,7 +32,7 @@ import { errorMessage } from '../session-context'
 import { alpha, cssColors, useTheme } from '../theme'
 import { Avatar, Button, Icon, IconButton, type IconName, KeyboardSpace, PriorityIcon, StatusIcon, Text } from '../ui'
 import { type FileSource, pickFiles } from './tasks/files'
-import { CycleChoices, Dot, DueDateChoices, EstimateChoices, LabelChoices, MenuChoices, MilestoneChoices, PeopleChoices, PriorityChoices, StatusChoices, TaskChoices } from './tasks/pickers'
+import { CycleChoices, Dot, DueDateChoices, EstimateChoices, LabelChoices, MenuChoices, MilestoneChoices, PeopleChoices, PriorityChoices, StatusChoices, SupervisorChoices, TaskChoices } from './tasks/pickers'
 import { Sheet, SheetList, SheetRow, useSheet } from './tasks/Sheet'
 
 /** Relations a new task can have: a duplicate needs a canonical task, which it cannot be marked as before it exists. */
@@ -41,7 +41,7 @@ const PENDING_RELATIONS = RELATION_OPTIONS.filter((option): option is { kind: Pe
 const RELATION_LABEL: Record<PendingKind, string> = { blocks: 'Blocks', blocked_by: 'Blocked by', related: 'Related to' }
 
 type DialogSheet =
-  | { kind: 'project' | 'status' | 'priority' | 'assignees' | 'labels' | 'due' | 'milestone' | 'cycle' | 'estimate' | 'parent-menu' | 'relation-menu' | 'attach' }
+  | { kind: 'project' | 'status' | 'priority' | 'assignees' | 'supervisor' | 'labels' | 'due' | 'milestone' | 'cycle' | 'estimate' | 'parent-menu' | 'relation-menu' | 'attach' }
   | { kind: 'pick-task'; purpose: 'parent' | PendingKind }
 
 function sheetTitle(sheet: DialogSheet | null): string {
@@ -55,6 +55,8 @@ function sheetTitle(sheet: DialogSheet | null): string {
       return 'Priority'
     case 'assignees':
       return 'Assignees'
+    case 'supervisor':
+      return 'Supervisor'
     case 'labels':
       return 'Labels'
     case 'due':
@@ -102,6 +104,7 @@ export function NewTaskDialog({ defaults, onClose }: { defaults: NewTaskDefaults
   const [statusId, setStatusId] = useState<string | null>(defaults.statusId ?? null)
   const [priority, setPriority] = useState<Priority>('none')
   const [assigneeIds, setAssigneeIds] = useState<string[]>([])
+  const [supervisorId, setSupervisorId] = useState<string | null>(null)
   const [chosenLabelIds, setChosenLabelIds] = useState<string[]>([])
   const [due, setDue] = useState<DueRange | null>(null)
   const [milestoneId, setMilestoneId] = useState<string | null>(null)
@@ -121,6 +124,7 @@ export function NewTaskDialog({ defaults, onClose }: { defaults: NewTaskDefaults
   const labelIds = project && labels.data ? matchingLabelIds(labels.data, chosenLabelIds, project.id) : chosenLabelIds
   const chosenLabels = (labels.data ?? []).filter((label) => labelIds.includes(label.id)).sort((a, b) => a.name.localeCompare(b.name))
   const assignees = people.filter((person) => assigneeIds.includes(person.id))
+  const supervisor = people.find((person) => person.id === supervisorId)
   const milestones = useMilestones(project?.id ?? null)
   const cycles = useCycles(project?.id ?? null)
   const milestone = milestones.data?.find((item) => item.id === milestoneId)
@@ -132,7 +136,7 @@ export function NewTaskDialog({ defaults, onClose }: { defaults: NewTaskDefaults
       const task = await taskApi.createTaskWith(
         client,
         workspaceId,
-        taskApi.newTaskBody({ title, description: files.length > 0 ? '' : description, projectId: project.id, statusId: status.id, priority, assigneeIds, labelIds, dueAt: due?.end ?? null, dueStartAt: due?.start ?? null, parentId: parent?.id ?? null, milestoneId: milestone?.id ?? null, cycleId: cycle?.id ?? null, estimate }),
+        taskApi.newTaskBody({ title, description: files.length > 0 ? '' : description, projectId: project.id, statusId: status.id, priority, assigneeIds, supervisorId, labelIds, dueAt: due?.end ?? null, dueStartAt: due?.start ?? null, parentId: parent?.id ?? null, milestoneId: milestone?.id ?? null, cycleId: cycle?.id ?? null, estimate }),
       )
       const problems: string[] = []
       if (relations.length > 0) {
@@ -273,6 +277,10 @@ export function NewTaskDialog({ defaults, onClose }: { defaults: NewTaskDefaults
                 {assignees.length === 0 ? <Icon name="user" size={14} color={colors.mutedForeground} /> : <Avatar id={assignees[0]!.id} name={assignees[0]!.name} size={14} />}
                 <ChipText>{assignees.length === 0 ? 'Assignee' : assignees.map((person) => person.name).join(', ')}</ChipText>
               </Chip>
+              <Chip label={supervisor ? `Supervisor: ${supervisor.name}` : 'Set supervisor'} onPress={() => sheets.open({ kind: 'supervisor' })}>
+                {supervisor ? <Avatar id={supervisor.id} name={supervisor.name} size={14} /> : <Icon name="user" size={14} color={colors.mutedForeground} />}
+                <ChipText>{supervisor?.name ?? 'Supervisor'}</ChipText>
+              </Chip>
               <Chip label={chosenLabels.length > 0 ? `Labels: ${chosenLabels.map((label) => label.name).join(', ')}` : 'Labels'} onPress={project ? () => sheets.open({ kind: 'labels' }) : undefined}>
                 {chosenLabels.length > 0 ? (
                   <View className="flex-row gap-0.5">
@@ -377,6 +385,7 @@ export function NewTaskDialog({ defaults, onClose }: { defaults: NewTaskDefaults
           />
         ) : null}
         {sheet?.kind === 'assignees' ? <PeopleChoices people={people.filter((person) => seesProject(person.id))} value={assigneeIds} onChange={setAssigneeIds} /> : null}
+        {sheet?.kind === 'supervisor' ? <SupervisorChoices people={people.filter((person) => seesProject(person.id))} value={supervisorId} onSelect={setSupervisorId} /> : null}
         {sheet?.kind === 'labels' && project ? <LabelChoices projectId={project.id} value={labelIds} onChange={setChosenLabelIds} /> : null}
         {sheet?.kind === 'due' ? (
           <DueDateChoices

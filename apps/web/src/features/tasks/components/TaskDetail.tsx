@@ -1,4 +1,5 @@
 import { useCommand } from '@/shortcuts/useCommand'
+import { ApiProblem } from '@orbit/api/problem'
 import { useEffect, useRef, useState, type ComponentProps, type ReactNode } from 'react'
 import { cn } from 'cn'
 import { useQueryClient } from '@tanstack/react-query'
@@ -142,6 +143,7 @@ export function TaskDetail({ task, project, state, onClose, onOpenTask, onOpenPr
   const status = state.statuses.find((s) => s.id === task?.statusId)
   const statusOptions = task ? projectStatuses(state.statuses, task.projectId) : []
   const assignees = users.filter((u) => task?.assigneeIds.includes(u.id))
+  const supervisor = users.find((u) => u.id === task?.supervisorId)
   const deleteAndClose = async (input: { taskId: string; version: number }) => {
     try {
       await deleteTask.mutateAsync(input)
@@ -227,7 +229,7 @@ export function TaskDetail({ task, project, state, onClose, onOpenTask, onOpenPr
             </div>
             {githubLinks.data?.some((link) => link.source) ? <p className="mt-2 text-xs text-muted-foreground">This task's title and description are read-only while it is linked to GitHub.</p> : null}
             {githubSyncPaused ? <p className="mt-2 text-xs text-muted-foreground">Add the project label to the GitHub issue or pull request again to resume updates.</p> : null}
-            {updateTask.isError ? <p role="alert" className="text-xs text-destructive">Task update failed. <Button variant="ghost" onClick={() => updateTask.variables && updateTask.mutate(updateTask.variables)}>Retry</Button></p> : null}
+            {updateTask.isError ? <p role="alert" className="text-xs text-destructive">{updateTask.error instanceof ApiProblem && updateTask.error.code === 'task_completion_forbidden' ? updateTask.error.detail : 'Task update failed.'} <Button variant="ghost" onClick={() => updateTask.variables && updateTask.mutate(updateTask.variables)}>Retry</Button></p> : null}
             {deleteAttachment.isError ? <p role="alert" className="text-xs text-destructive">Attachment removal failed. <Button variant="ghost" onClick={() => deleteAttachment.variables && deleteAttachment.mutate(deleteAttachment.variables)}>Retry</Button></p> : null}
             {deleteTask.isError ? <p role="alert" className="text-xs text-destructive">Task deletion failed. <Button variant="ghost" onClick={() => deleteTask.variables && void deleteAndClose(deleteTask.variables)}>Retry</Button></p> : null}
             {addRelation.isError ? <p role="alert" className="text-xs text-destructive">Couldn't add the relation. {addRelation.error.message}</p> : null}
@@ -341,6 +343,30 @@ export function TaskDetail({ task, project, state, onClose, onOpenTask, onOpenPr
                       <>
                         <UserIcon aria-hidden="true" className="text-muted-foreground" />
                         Assign
+                      </>
+                    )}
+                  </PropertyButton>
+                }
+              />
+              <SearchPicker
+                label="Supervisor"
+                placeholder="Set supervisor…"
+                emptyText="No people match"
+                tip="The supervisor and the assignees may mark this task complete. Select the same person again to clear it."
+                options={audience.map(personOption)}
+                selected={task.supervisorId ? [task.supervisorId] : []}
+                onSelect={(id) => updateTask.mutate({ taskId: task.id, body: { expected_version: task.version, supervisor_id: task.supervisorId === id ? null : id } })}
+                trigger={
+                  <PropertyButton aria-label={`Supervisor: ${supervisor?.name ?? 'none'}`}>
+                    {supervisor ? (
+                      <>
+                        <UserAvatarStack users={[supervisor]} size={16} />
+                        <span className="truncate">{supervisor.name}</span>
+                      </>
+                    ) : (
+                      <>
+                        <UserIcon aria-hidden="true" className="text-muted-foreground" />
+                        Set supervisor
                       </>
                     )}
                   </PropertyButton>

@@ -1135,6 +1135,7 @@ async fn install_seed_data(database: Database) -> Result<String, CliError> {
                     position: None,
                     assignee_ids: vec![user_id],
                     label_ids: Vec::new(),
+                    supervisor_id: None,
                     due_start_at: None,
                     due_at: None,
                     parent_task_id: None,

@@ -1527,6 +1527,8 @@ struct CreateTaskBody {
     assignee_ids: Vec<String>,
     #[serde(default)]
     label_ids: Vec<String>,
+    /// The member who may complete this task in addition to its assignees.
+    supervisor_id: Option<String>,
     #[schema(value_type = Option<String>, format = DateTime)]
     due_start_at: Option<TimestampMillis>,
     #[schema(value_type = Option<String>, format = DateTime)]
@@ -1559,6 +1561,10 @@ struct TaskUpdateBody {
     position: Option<i64>,
     assignee_ids: Option<Vec<String>>,
     label_ids: Option<Vec<String>>,
+    /// Absent: unchanged. A member id: set the supervisor. `null`: clear it.
+    #[serde(default, deserialize_with = "deserialize_patch")]
+    #[schema(value_type = Option<String>)]
+    supervisor_id: Option<Option<String>>,
     #[serde(default, deserialize_with = "deserialize_due_patch")]
     #[schema(value_type = Option<String>, format = DateTime)]
     due_start_at: Option<Option<TimestampMillis>>,
@@ -1611,6 +1617,10 @@ struct BulkItem {
     position: Option<i64>,
     assignee_ids: Option<Vec<String>>,
     label_ids: Option<Vec<String>>,
+    /// Absent: unchanged. A member id: set the supervisor. `null`: clear it.
+    #[serde(default, deserialize_with = "deserialize_patch")]
+    #[schema(value_type = Option<String>)]
+    supervisor_id: Option<Option<String>>,
     #[serde(default, deserialize_with = "deserialize_due_patch")]
     #[schema(value_type = Option<String>, format = DateTime)]
     due_start_at: Option<Option<TimestampMillis>>,
@@ -2091,6 +2101,7 @@ async fn create_task(
         position: body.position,
         assignee_ids: parse_ids(body.assignee_ids, &instance, request_id.as_ref())?,
         label_ids: parse_ids(body.label_ids, &instance, request_id.as_ref())?,
+        supervisor_id: optional_id(body.supervisor_id, &instance, request_id.as_ref())?,
         due_start_at: body.due_start_at,
         due_at: body.due_at,
         parent_task_id: optional_id(body.parent_task_id, &instance, request_id.as_ref())?,
@@ -2181,6 +2192,7 @@ async fn bulk_tasks(
                     position: item.position,
                     assignee_ids: item.assignee_ids,
                     label_ids: item.label_ids,
+                    supervisor_id: item.supervisor_id,
                     due_start_at: item.due_start_at,
                     due_at: item.due_at,
                     duplicate_of_id: item.duplicate_of_id,
@@ -2755,6 +2767,10 @@ fn task_update(
                 .label_ids
                 .map(|values| parse_ids(values, instance, request_id))
                 .transpose()?,
+            supervisor_id: body
+                .supervisor_id
+                .map(|value| optional_id(value, instance, request_id))
+                .transpose()?,
             due_start_at: body.due_start_at,
             due_at: body.due_at,
             duplicate_of_id: body
@@ -3145,6 +3161,14 @@ pub(crate) fn task_problem(
             "task_action_forbidden",
             "Action forbidden",
             "You do not have permission to change this resource.",
+            instance,
+            request_id,
+        ),
+        TaskError::CompletionForbidden => ApiError::new(
+            StatusCode::FORBIDDEN,
+            "task_completion_forbidden",
+            "Completion forbidden",
+            "Only an assignee or the supervisor may complete this task.",
             instance,
             request_id,
         ),

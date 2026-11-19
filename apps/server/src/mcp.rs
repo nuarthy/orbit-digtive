@@ -688,6 +688,7 @@ impl TaskTools {
                         priority: a.priority,
                         assignee_ids,
                         label_ids,
+                        supervisor_id: None,
                         parent_task_id,
                         due_start_at: None,
                         due_at: None,
@@ -932,6 +933,9 @@ fn tool_error(error: TokenApiError) -> Result<CallToolResult, ErrorData> {
         }
         TokenApiError::Task(error) => text(match error {
             TaskError::NotFound | TaskError::Forbidden => "Task resource is not available",
+            TaskError::CompletionForbidden => {
+                "Only an assignee or the supervisor may complete this task"
+            }
             TaskError::InvalidCursor => "Invalid pagination cursor",
             TaskError::Invalid {
                 field: "assignee_ids",

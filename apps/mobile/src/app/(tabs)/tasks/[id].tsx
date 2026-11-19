@@ -22,6 +22,7 @@ import {
   RecurrenceForm,
   SourceForm,
   StatusChoices,
+  SupervisorChoices,
   TaskChoices,
 } from '../../../components/tasks/pickers'
 import { DuplicateBanner, RelationsSection, SubIssuesSection } from '../../../components/tasks/sections'
@@ -64,7 +65,7 @@ import { Avatar, Button, ErrorView, Icon, IconButton, type IconName, KeyboardSpa
 
 /** The one sheet of the page and what it shows. */
 type TaskSheet =
-  | { kind: 'status' | 'priority' | 'assignees' | 'labels' | 'due' | 'repeat' | 'milestone' | 'cycle' | 'estimate' | 'source' | 'parent-menu' | 'relation-menu' | 'attach' }
+  | { kind: 'status' | 'priority' | 'assignees' | 'supervisor' | 'labels' | 'due' | 'repeat' | 'milestone' | 'cycle' | 'estimate' | 'source' | 'parent-menu' | 'relation-menu' | 'attach' }
   | { kind: 'pick-task'; purpose: 'parent' | 'sub-issue' | RelationKind }
 
 function sheetTitle(sheet: TaskSheet | null, subject: string): string {
@@ -76,6 +77,8 @@ function sheetTitle(sheet: TaskSheet | null, subject: string): string {
       return 'Priority'
     case 'assignees':
       return 'Assignees'
+    case 'supervisor':
+      return 'Supervisor'
     case 'labels':
       return 'Labels'
     case 'due':
@@ -375,6 +378,10 @@ export default function TaskScreen() {
                     </>
                   )}
                 </Chip>
+                <Chip pull label={current.supervisor_id ? `Supervisor: ${nameOf(current.supervisor_id)}` : 'Set supervisor'} onPress={() => sheets.open({ kind: 'supervisor' })}>
+                  {current.supervisor_id ? <Avatar id={current.supervisor_id} name={nameOf(current.supervisor_id)} size={16} /> : <Icon name="user" size={14} color={colors.mutedForeground} />}
+                  <ChipText muted={!current.supervisor_id}>{current.supervisor_id ? nameOf(current.supervisor_id) : 'Supervisor'}</ChipText>
+                </Chip>
               </View>
               <View className="flex-row mt-1 -ml-2">
                 <Chip
@@ -534,6 +541,7 @@ export default function TaskScreen() {
           />
         ) : null}
         {sheet?.kind === 'assignees' ? <PeopleChoices people={people.filter((person) => seesProject(person.id))} value={current.assignee_ids} onChange={(ids) => write.mutate({ assignee_ids: ids })} /> : null}
+        {sheet?.kind === 'supervisor' ? <SupervisorChoices people={people.filter((person) => seesProject(person.id))} value={current.supervisor_id ?? null} onSelect={(supervisorId) => { sheets.close(); write.mutate({ supervisor_id: supervisorId }) }} /> : null}
         {sheet?.kind === 'labels' ? <LabelChoices projectId={current.project_id} value={current.label_ids} onChange={(ids) => write.mutate({ label_ids: ids })} /> : null}
         {sheet?.kind === 'due' ? (
           <DueDateChoices

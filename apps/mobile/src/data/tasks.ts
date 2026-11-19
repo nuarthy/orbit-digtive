@@ -99,6 +99,8 @@ export const replaceTask = (list: readonly TaskRecord[], task: TaskRecord) => li
 /** The task changed since it was loaded: `expected_version` no longer matches. */
 export const isVersionConflict = (error: unknown) => error instanceof ApiProblem && error.status === 409 && ['task_conflict', 'conflict'].includes(error.code)
 
+export const isCompletionForbidden = (error: unknown) => error instanceof ApiProblem && error.code === 'task_completion_forbidden'
+
 // ---- properties
 
 /** The order of the priority menus (task detail and New task), as the web's. */
@@ -114,7 +116,7 @@ export const toggleId = (list: readonly string[], id: string): string[] => (list
 export type TaskPatch = Partial<
   Pick<
     TaskRecord,
-    'status_id' | 'priority' | 'assignee_ids' | 'label_ids' | 'due_at' | 'due_start_at' | 'source_url' | 'recurrence' | 'milestone_id' | 'cycle_id' | 'estimate'
+    'status_id' | 'priority' | 'assignee_ids' | 'label_ids' | 'supervisor_id' | 'due_at' | 'due_start_at' | 'source_url' | 'recurrence' | 'milestone_id' | 'cycle_id' | 'estimate'
   >
 > & {
   parent_task_id?: string | null

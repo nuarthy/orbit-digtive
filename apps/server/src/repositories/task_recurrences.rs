@@ -375,6 +375,7 @@ pub(super) async fn spawn_next_in_tx(
             position: None,
             assignee_ids,
             label_ids: closed.label_ids.clone(),
+            supervisor_id: closed.supervisor_id,
             due_start_at,
             due_at,
             parent_task_id: closed.parent.as_ref().map(|parent| parent.id),

@@ -1778,6 +1778,7 @@ impl LinearImportService {
             position: None,
             assignee_ids: assignee.into_iter().collect(),
             label_ids: labels,
+            supervisor_id: None,
             due_start_at: None,
             due_at: issue
                 .due_date

@@ -1,0 +1,1 @@
+ALTER TABLE tasks ADD COLUMN supervisor_id TEXT REFERENCES users(id) ON DELETE SET NULL;

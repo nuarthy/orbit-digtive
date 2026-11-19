@@ -88,6 +88,7 @@ export function NewTaskDialog({ defaults = {}, initialTitle = '', initialDescrip
     statusId: defaults.status_id,
     priority: (defaults.priority ?? 'none') as TaskPriority,
     assigneeIds: defaults.assignee_ids ?? [],
+    supervisorId: null as string | null,
     labelIds: defaults.label_ids ?? [],
     dueAt: defaults.due_at ?? null,
     dueStartAt: defaults.due_start_at ?? null,
@@ -136,6 +137,7 @@ export function NewTaskDialog({ defaults = {}, initialTitle = '', initialDescrip
   const labelIds = project && labelsQuery.isSuccess ? matchingLabelIds(labels, draft.labelIds, project.id) : draft.labelIds
   const chosenLabels = labels.filter((label) => labelIds.includes(label.id)).sort((a, b) => a.name.localeCompare(b.name))
   const assignees = members.filter((member) => draft.assigneeIds.includes(member.id))
+  const supervisor = members.find((member) => member.id === draft.supervisorId)
   const audience = useProjectAudience(workspace.id, project, members)
   // a milestone or cycle belongs to one project: another project drops it
   const milestones = useMilestones(workspace.id, project?.id).data ?? []
@@ -166,6 +168,7 @@ export function NewTaskDialog({ defaults = {}, initialTitle = '', initialDescrip
         status_id: status.id,
         priority: draft.priority,
         assignee_ids: draft.assigneeIds,
+        supervisor_id: draft.supervisorId,
         label_ids: labelIds,
         due_at: draft.dueAt,
         due_start_at: draft.dueStartAt,
@@ -444,6 +447,30 @@ export function NewTaskDialog({ defaults = {}, initialTitle = '', initialDescrip
                     <>
                       <UserIcon aria-hidden="true" className="text-muted-foreground" />
                       Assignee
+                    </>
+                  )}
+                </Button>
+              }
+            />
+            <SearchPicker
+              label="Supervisor"
+              placeholder="Set supervisor…"
+              emptyText="No people match"
+              tip="The supervisor and the assignees may mark this task complete. Select the same person again to clear it."
+              options={audience.map(personOption)}
+              selected={draft.supervisorId ? [draft.supervisorId] : []}
+              onSelect={(id) => setDraft((current) => ({ ...current, supervisorId: current.supervisorId === id ? null : id }))}
+              trigger={
+                <Button type="button" variant="outline" size="sm" className="max-w-56 font-normal" aria-label={supervisor ? `Supervisor: ${supervisor.name}` : 'Supervisor'}>
+                  {supervisor ? (
+                    <>
+                      <UserAvatarStack users={[supervisor]} size={16} />
+                      <span className="truncate">{supervisor.name}</span>
+                    </>
+                  ) : (
+                    <>
+                      <UserIcon aria-hidden="true" className="text-muted-foreground" />
+                      Supervisor
                     </>
                   )}
                 </Button>

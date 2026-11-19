@@ -68340,6 +68340,13 @@
               "null"
             ]
           },
+          "supervisor_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Absent: unchanged. A member id: set the supervisor. `null`: clear it."
+          },
           "title": {
             "type": [
               "string",
@@ -70876,6 +70883,13 @@
           },
           "status_id": {
             "type": "string"
+          },
+          "supervisor_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The member who may complete this task in addition to its assignees."
           },
           "title": {
             "type": "string"
@@ -81114,6 +81128,13 @@
                   "format": "int64",
                   "description": "Direct live children (sub-issues)."
                 },
+                "supervisor_id": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "description": "The member who may complete this task in addition to its assignees."
+                },
                 "title": {
                   "type": "string"
                 },
@@ -82339,6 +82360,13 @@
             "type": "string",
             "description": "A status of the task's project."
           },
+          "supervisor_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The member who may complete this task in addition to its assignees."
+          },
           "title": {
             "type": "string",
             "description": "1 to 500 characters."
@@ -83500,6 +83528,13 @@
               "status_id": {
                 "type": "string"
               },
+              "supervisor_id": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "description": "The member who may complete this task in addition to its assignees."
+              },
               "title": {
                 "type": "string"
               },
@@ -83940,6 +83975,13 @@
               "string",
               "null"
             ]
+          },
+          "supervisor_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The member who may complete this task in addition to its assignees; `null` clears it."
           },
           "title": {
             "type": [
@@ -86754,6 +86796,13 @@
             "format": "int64",
             "description": "Direct live children (sub-issues)."
           },
+          "supervisor_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The member who may complete this task in addition to its assignees."
+          },
           "title": {
             "type": "string"
           },
@@ -87090,6 +87139,13 @@
               "string",
               "null"
             ]
+          },
+          "supervisor_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Absent: unchanged. A member id: set the supervisor. `null`: clear it."
           },
           "title": {
             "type": [

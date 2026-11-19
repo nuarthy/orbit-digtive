@@ -82,6 +82,25 @@ function SettingsLink({ projectId, onOpen }: { projectId: string; onOpen: () => 
   )
 }
 
+/** One workspace member for a task's supervisor, with a clear row like the milestone and cycle pickers. */
+export function SupervisorChoices({ people, value, onSelect }: { people: readonly Person[]; value: string | null; onSelect: (supervisorId: string | null) => void }) {
+  const [query, setQuery] = useState('')
+  const needle = query.trim().toLowerCase()
+  const shown = people.filter((person) => !needle || person.name.toLowerCase().includes(needle))
+  return (
+    <>
+      <SheetSearch value={query} onChange={setQuery} placeholder="Change supervisor…" />
+      <SheetList>
+        {shown.map((person) => (
+          <SheetRow key={person.id} label={person.name} leading={<Avatar id={person.id} name={person.name} size={20} />} checked={person.id === value} onPress={() => onSelect(person.id)} />
+        ))}
+        {shown.length === 0 ? <SheetNote>No members match.</SheetNote> : null}
+        {value ? <SheetRow label="No supervisor" icon="close" onPress={() => onSelect(null)} /> : null}
+      </SheetList>
+    </>
+  )
+}
+
 /** The project's milestones in their order, with their progress, and No milestone. One tap picks and closes. */
 export function MilestoneChoices({ projectId, value, onSelect, onOpenSettings }: { projectId: string; value: string | null; onSelect: (milestoneId: string | null) => void; /** Offers project settings when the list is empty (not in the New task dialog, which would lose its draft). */ onOpenSettings?: () => void }) {
   const { colors } = useTheme()

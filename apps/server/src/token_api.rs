@@ -135,6 +135,9 @@ pub struct ReadTask {
     pub assignee_ids: Vec<Id>,
     #[schema(value_type = Vec<String>)]
     pub label_ids: Vec<Id>,
+    /// The member who may complete this task in addition to its assignees.
+    #[schema(value_type = Option<String>)]
+    pub supervisor_id: Option<Id>,
     #[schema(value_type = Option<String>, format = DateTime, required = true)]
     pub due_start_at: Option<TimestampMillis>,
     #[schema(value_type = Option<String>, format = DateTime, required = true)]
@@ -226,6 +229,7 @@ impl ReadTask {
             priority: task.priority,
             assignee_ids: task.assignee_ids,
             label_ids: task.label_ids,
+            supervisor_id: task.supervisor_id,
             due_start_at: task.due_start_at,
             due_at: task.due_at,
             recurrence: task.recurrence,
@@ -458,6 +462,7 @@ pub struct NewTask {
     pub priority: String,
     pub assignee_ids: Vec<Id>,
     pub label_ids: Vec<Id>,
+    pub supervisor_id: Option<Id>,
     pub parent_task_id: Option<Id>,
     pub due_start_at: Option<TimestampMillis>,
     pub due_at: Option<TimestampMillis>,
@@ -613,6 +618,8 @@ pub struct TaskPatch {
     pub priority: Option<String>,
     pub assignee_ids: Option<Vec<Id>>,
     pub label_ids: Option<Vec<Id>>,
+    /// `Some(None)` clears the supervisor.
+    pub supervisor_id: Option<Option<Id>>,
     /// `Some(None)` clears the date.
     pub due_start_at: Option<Option<TimestampMillis>>,
     pub due_at: Option<Option<TimestampMillis>>,
@@ -1239,6 +1246,7 @@ impl Authorized<'_> {
             position: None,
             assignee_ids: input.assignee_ids,
             label_ids: input.label_ids,
+            supervisor_id: input.supervisor_id,
             due_start_at: input.due_start_at,
             due_at: input.due_at,
             parent_task_id: input.parent_task_id,
@@ -1353,6 +1361,7 @@ impl Authorized<'_> {
                         priority: patch.priority,
                         assignee_ids: patch.assignee_ids,
                         label_ids: patch.label_ids,
+                        supervisor_id: patch.supervisor_id,
                         due_start_at: patch.due_start_at,
                         due_at: patch.due_at,
                         parent_task_id: patch.parent_task_id,

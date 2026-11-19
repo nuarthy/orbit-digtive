@@ -1556,6 +1556,7 @@ fn task_problem(error: TaskError, request_id: Option<&RequestId>) -> ApiError {
         | TaskError::InvalidCursor
         | TaskError::InvalidFilter { .. }
         | TaskError::Forbidden
+        | TaskError::CompletionForbidden
         | TaskError::ParentCycle
         | TaskError::ParentInvalid
         | TaskError::CycleOverlap

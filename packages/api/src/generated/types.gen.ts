@@ -758,6 +758,10 @@ export type BulkItem = {
     project_id?: string | null;
     source_url?: string | null;
     status_id?: string | null;
+    /**
+     * Absent: unchanged. A member id: set the supervisor. `null`: clear it.
+     */
+    supervisor_id?: string | null;
     title?: string | null;
 };
 
@@ -1802,6 +1806,10 @@ export type CreateTaskBody = {
     project_id: string;
     source_url?: string | null;
     status_id: string;
+    /**
+     * The member who may complete this task in addition to its assignees.
+     */
+    supervisor_id?: string | null;
     title: string;
 };
 
@@ -5920,6 +5928,10 @@ export type PageTaskRecord = {
          * Direct live children (sub-issues).
          */
         sub_issue_count: number;
+        /**
+         * The member who may complete this task in addition to its assignees.
+         */
+        supervisor_id?: string | null;
         title: string;
         /**
          * Task trash only: descendants trashed together with this task (restored with it).
@@ -6528,6 +6540,10 @@ export type PublicCreateTaskBody = {
      */
     status_id: string;
     /**
+     * The member who may complete this task in addition to its assignees.
+     */
+    supervisor_id?: string | null;
+    /**
      * 1 to 500 characters.
      */
     title: string;
@@ -7034,6 +7050,10 @@ export type PublicTask = {
     project_id: string;
     recurrence: null | TaskRecurrence;
     status_id: string;
+    /**
+     * The member who may complete this task in addition to its assignees.
+     */
+    supervisor_id?: string | null;
     title: string;
     updated_at: string;
     /**
@@ -7276,6 +7296,10 @@ export type PublicUpdateTaskBody = {
     priority?: string | null;
     recurrence?: null | TaskRecurrence;
     status_id?: string | null;
+    /**
+     * The member who may complete this task in addition to its assignees; `null` clears it.
+     */
+    supervisor_id?: string | null;
     /**
      * 1 to 500 characters.
      */
@@ -8350,6 +8374,10 @@ export type TaskRecord = {
      * Direct live children (sub-issues).
      */
     sub_issue_count: number;
+    /**
+     * The member who may complete this task in addition to its assignees.
+     */
+    supervisor_id?: string | null;
     title: string;
     /**
      * Task trash only: descendants trashed together with this task (restored with it).
@@ -8480,6 +8508,10 @@ export type TaskUpdateBody = {
     recurrence?: null | TaskRecurrence;
     source_url?: string | null;
     status_id?: string | null;
+    /**
+     * Absent: unchanged. A member id: set the supervisor. `null`: clear it.
+     */
+    supervisor_id?: string | null;
     title?: string | null;
 };
 

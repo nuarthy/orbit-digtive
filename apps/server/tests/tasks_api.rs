@@ -4000,6 +4000,92 @@ async fn completed_at_is_set_and_cleared_by_status_changes() {
 }
 
 #[tokio::test]
+async fn only_assignees_and_the_supervisor_may_complete_a_task() {
+    let fixture = Fixture::new().await;
+    let (assignee_id, assignee_cookie) = add_member(&fixture, "assignee@example.com").await;
+    let (supervisor_id, supervisor_cookie) = add_member(&fixture, "supervisor@example.com").await;
+    let (_, outsider_cookie) = add_member(&fixture, "outsider@example.com").await;
+    let done = status_id_by_category(&fixture, &fixture.project_id, "completed").await;
+
+    let created = fixture
+        .app
+        .clone()
+        .oneshot(json_request(
+            "POST",
+            &format!("/api/v1/workspaces/{}/tasks", fixture.workspace_id),
+            &fixture.owner_cookie,
+            json!({
+                "project_id": fixture.project_id,
+                "status_id": fixture.status_id,
+                "title": "Supervised",
+                "assignee_ids": [assignee_id],
+                "supervisor_id": supervisor_id,
+            }),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(created.status(), StatusCode::CREATED);
+    let task = response_json(created).await;
+    let id = id_of(&task).to_owned();
+    assert_eq!(task["supervisor_id"], supervisor_id.to_string());
+
+    async fn patch_status(fixture: &Fixture, cookie: &str, uri: &str, version: Value, status_id: &str) -> (StatusCode, Value) {
+        let response = fixture
+            .app
+            .clone()
+            .oneshot(json_request(
+                "PATCH",
+                uri,
+                cookie,
+                json!({ "expected_version": version, "status_id": status_id }),
+            ))
+            .await
+            .unwrap();
+        let status = response.status();
+        (status, response_json(response).await)
+    }
+
+    let uri = task_uri(&fixture, &id);
+    let (status, body) = patch_status(&fixture, &outsider_cookie, &uri, task["version"].clone(), &done).await;
+    assert_eq!(status, StatusCode::FORBIDDEN);
+    assert_eq!(body["code"], "task_completion_forbidden");
+
+    // The owner created the task but is neither assignee nor supervisor.
+    let (status, _) = patch_status(&fixture, &fixture.owner_cookie, &uri, task["version"].clone(), &done).await;
+    assert_eq!(status, StatusCode::FORBIDDEN);
+
+    let (status, closed_by_supervisor) = patch_status(&fixture, &supervisor_cookie, &uri, task["version"].clone(), &done).await;
+    assert_eq!(status, StatusCode::OK);
+
+    // Leaving Completed stays open to anyone who sees the task.
+    let (status, reopened) = patch_status(&fixture, &outsider_cookie, &uri, closed_by_supervisor["version"].clone(), &fixture.status_id).await;
+    assert_eq!(status, StatusCode::OK);
+
+    let (status, closed_by_assignee) = patch_status(&fixture, &assignee_cookie, &uri, reopened["version"].clone(), &done).await;
+    assert_eq!(status, StatusCode::OK);
+
+    // Clearing the supervisor takes their completion right away.
+    let clear = fixture
+        .app
+        .clone()
+        .oneshot(json_request(
+            "PATCH",
+            &uri,
+            &fixture.owner_cookie,
+            json!({ "expected_version": closed_by_assignee["version"].clone(), "supervisor_id": null }),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(clear.status(), StatusCode::OK);
+    let cleared = response_json(clear).await;
+    assert!(cleared["supervisor_id"].is_null());
+    let (status, reopened_after_clear) = patch_status(&fixture, &supervisor_cookie, &uri, cleared["version"].clone(), &fixture.status_id).await;
+    assert_eq!(status, StatusCode::OK);
+    let (status, _) = patch_status(&fixture, &supervisor_cookie, &uri, reopened_after_clear["version"].clone(), &done).await;
+    assert_eq!(status, StatusCode::FORBIDDEN);
+}
+
+#[tokio::test]
 async fn completed_at_follows_status_category_edits() {
     let fixture = Fixture::new().await;
     let task = fixture.create_task("Shipped").await;

@@ -99,6 +99,7 @@ export function newTaskBody(draft: {
   statusId: string
   priority: string
   assigneeIds: readonly string[]
+  supervisorId: string | null
   labelIds: readonly string[]
   dueAt: string | null
   dueStartAt: string | null
@@ -115,6 +116,7 @@ export function newTaskBody(draft: {
     status_id: draft.statusId,
     priority: draft.priority,
     assignee_ids: [...draft.assigneeIds],
+    supervisor_id: draft.supervisorId,
     label_ids: [...draft.labelIds],
     due_at: draft.dueAt,
     due_start_at: draft.dueStartAt,

@@ -104,6 +104,8 @@ export interface Task {
   position: number
   priority: TaskPriority
   assigneeIds: string[]
+  /** The member who may complete this task in addition to its assignees. */
+  supervisorId?: string | null
   creatorId?: string
   creatorServiceAccountId?: string
   creatorServiceAccountName?: string
@@ -329,6 +331,7 @@ export function taskFromRecord(
     position: record.position,
     priority,
     assigneeIds: record.assignee_ids,
+    supervisorId: record.supervisor_id,
     creatorId: record.creator_id ?? undefined,
     creatorServiceAccountId: record.creator_service_account_id ?? undefined,
     creatorServiceAccountName: record.creator_service_account_name ?? undefined,

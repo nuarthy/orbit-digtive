@@ -168,6 +168,9 @@ pub struct TaskRecord {
     pub assignee_ids: Vec<Id>,
     #[schema(value_type = Vec<String>)]
     pub label_ids: Vec<Id>,
+    /// The member who may complete this task in addition to its assignees.
+    #[schema(value_type = Option<String>)]
+    pub supervisor_id: Option<Id>,
     #[schema(value_type = Option<String>, format = DateTime)]
     pub due_start_at: Option<TimestampMillis>,
     #[schema(value_type = Option<String>, format = DateTime)]
@@ -339,6 +342,8 @@ pub struct CreateTask {
     pub position: Option<i64>,
     pub assignee_ids: Vec<Id>,
     pub label_ids: Vec<Id>,
+    /// The member who supervises completion of this task.
+    pub supervisor_id: Option<Id>,
     pub due_start_at: Option<TimestampMillis>,
     pub due_at: Option<TimestampMillis>,
     pub parent_task_id: Option<Id>,
@@ -444,6 +449,8 @@ pub struct TaskChanges {
     pub position: Option<i64>,
     pub assignee_ids: Option<Vec<Id>>,
     pub label_ids: Option<Vec<Id>>,
+    /// `Some(Some(id))` sets the supervisor; `Some(None)` clears it.
+    pub supervisor_id: Option<Option<Id>>,
     pub due_start_at: Option<Option<TimestampMillis>>,
     pub due_at: Option<Option<TimestampMillis>>,
     /// `Some(Some(id))` marks the task as a duplicate of `id`; `Some(None)` unmarks it.
@@ -546,6 +553,8 @@ pub enum TaskError {
     InvalidFilter { path: String, message: &'static str },
     #[error("the caller may not change this resource")]
     Forbidden,
+    #[error("only an assignee or the supervisor may complete this task")]
+    CompletionForbidden,
     #[error("the parent would create a cycle")]
     ParentCycle,
     #[error("the parent task is not available")]
@@ -2193,6 +2202,7 @@ impl TaskRepository {
         }
         validate_assignees(&mut tx, workspace_id, &input.assignee_ids).await?;
         validate_assignees_see_project(&mut tx, input.project_id, &input.assignee_ids).await?;
+        validate_supervisor(&mut tx, workspace_id, input.project_id, input.supervisor_id).await?;
         validate_labels(&mut tx, workspace_id, input.project_id, &input.label_ids).await?;
         validate_plan(
             &mut tx,
@@ -4029,9 +4039,9 @@ pub(super) async fn insert_task_rows_in_tx(
         .map(|blocks| Value::Array(blocks.clone()).to_string());
     let created_at = source.created_at.unwrap_or(now);
     let inserted = sqlx::query(
-        "INSERT INTO tasks (id, workspace_id, project_id, status_id, title, description, source_url, priority, position, creator_id, due_start_at, due_at, parent_task_id, version, created_at, updated_at, description_json, creator_service_account_id, completed_at, recurrence_id, number, external_id, milestone_id, cycle_id, estimate) \
+        "INSERT INTO tasks (id, workspace_id, project_id, status_id, title, description, source_url, priority, position, creator_id, due_start_at, due_at, parent_task_id, version, created_at, updated_at, description_json, creator_service_account_id, completed_at, recurrence_id, number, external_id, milestone_id, cycle_id, estimate, supervisor_id) \
          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, 0, $14, $15, $16, $17, \
-         CASE WHEN EXISTS (SELECT 1 FROM task_statuses WHERE id = $18 AND category IN ('completed', 'cancelled')) THEN $19 END, $20, $21, $22, $23, $24, $25)",
+         CASE WHEN EXISTS (SELECT 1 FROM task_statuses WHERE id = $18 AND category IN ('completed', 'cancelled')) THEN $19 END, $20, $21, $22, $23, $24, $25, $26)",
     )
     .bind(id.to_string())
     .bind(workspace_id.to_string())
@@ -4058,6 +4068,7 @@ pub(super) async fn insert_task_rows_in_tx(
     .bind(input.milestone_id.map(|id| id.to_string()))
     .bind(input.cycle_id.map(|id| id.to_string()))
     .bind(input.estimate)
+    .bind(input.supervisor_id.map(|id| id.to_string()))
     .execute(&mut **tx)
     .await;
     // Another request wrote the same `external_id` first.
@@ -4146,6 +4157,18 @@ pub(super) async fn update_task_in_tx(
     };
     // A move into a project the actor does not see fails here, like a move into a missing one.
     validate_project_status(tx, scope, workspace_id, project_id, status_id).await?;
+    // Completion is a personal act: only the task's assignees and its supervisor may do it.
+    // Moving a task out of Completed, or editing an already-completed task, stays open.
+    if status_id != current.status_id
+        && task_relations::status_category_in_tx(tx, workspace_id, status_id).await? == "completed"
+        && !current.assignee_ids.contains(&actor_id)
+        && current.supervisor_id != Some(actor_id)
+    {
+        return Err(TaskError::CompletionForbidden);
+    }
+    if let Some(supervisor_id) = update.changes.supervisor_id {
+        validate_supervisor(tx, workspace_id, project_id, supervisor_id).await?;
+    }
     if let Some(assignees) = &update.changes.assignee_ids {
         validate_assignees(tx, workspace_id, assignees).await?;
         // Someone assigned before the project became private stays; only new ones are checked.
@@ -4239,6 +4262,10 @@ pub(super) async fn update_task_in_tx(
         .priority
         .clone()
         .unwrap_or(current.priority.clone());
+    let supervisor_id = update
+        .changes
+        .supervisor_id
+        .unwrap_or(current.supervisor_id);
     let position = match update.changes.position {
         Some(position) => position,
         // A moved task goes to the end of its column in the target project.
@@ -4271,9 +4298,9 @@ pub(super) async fn update_task_in_tx(
     // A project move clears `number`; the `tasks_number_project_change` trigger assigns the
     // target project's next one (clearing it here keeps the old number from colliding there)
     // and keeps the old identifier in `task_number_aliases`.
-    sqlx::query("UPDATE tasks SET project_id = $1, number = CASE WHEN project_id = $2 THEN number ELSE NULL END, status_id = $3, title = $4, description = $5, source_url = $6, priority = $7, position = $8, due_start_at = $9, due_at = $10, parent_task_id = $11, version = version + 1, updated_at = $12, milestone_id = $16, cycle_id = $17, estimate = $18 WHERE id = $13 AND workspace_id = $14 AND deleted_at IS NULL AND version = $15")
+    sqlx::query("UPDATE tasks SET project_id = $1, number = CASE WHEN project_id = $2 THEN number ELSE NULL END, status_id = $3, title = $4, description = $5, source_url = $6, priority = $7, position = $8, due_start_at = $9, due_at = $10, parent_task_id = $11, version = version + 1, updated_at = $12, milestone_id = $16, cycle_id = $17, estimate = $18, supervisor_id = $19 WHERE id = $13 AND workspace_id = $14 AND deleted_at IS NULL AND version = $15")
         .bind(project_id.to_string()).bind(project_id.to_string()).bind(status_id.to_string()).bind(&title).bind(&description).bind(&source_url).bind(&priority).bind(position).bind(due_start_at.map(TimestampMillis::as_millis)).bind(due_at.map(TimestampMillis::as_millis)).bind(parent_task_id.map(|id| id.to_string())).bind(now.as_millis()).bind(update.id.to_string()).bind(workspace_id.to_string()).bind(update.expected_version as i64)
-        .bind(milestone_id.map(|id| id.to_string())).bind(cycle_id.map(|id| id.to_string())).bind(estimate).execute(&mut **tx).await?;
+        .bind(milestone_id.map(|id| id.to_string())).bind(cycle_id.map(|id| id.to_string())).bind(estimate).bind(supervisor_id.map(|id| id.to_string())).execute(&mut **tx).await?;
     if let Some(rule) = update.changes.recurrence {
         task_recurrences::set_in_tx(tx, workspace_id, update.id, actor_id, rule, due_at, now)
             .await?;
@@ -4814,6 +4841,25 @@ async fn validate_assignees(
     Ok(())
 }
 
+/// A supervisor must be an active, non-guest member who can see the task's project.
+async fn validate_supervisor(
+    tx: &mut Transaction<'_, Any>,
+    workspace_id: Id,
+    project_id: Id,
+    supervisor_id: Option<Id>,
+) -> Result<(), TaskError> {
+    let Some(id) = supervisor_id else {
+        return Ok(());
+    };
+    validate_member(tx, workspace_id, id, "supervisor_id").await?;
+    if !project_access::user_sees_project(&mut **tx, project_id, id).await? {
+        return Err(TaskError::Invalid {
+            field: "supervisor_id",
+        });
+    }
+    Ok(())
+}
+
 /// Nobody is assigned to a task of a project they do not see.
 async fn validate_assignees_see_project(
     tx: &mut Transaction<'_, Any>,
@@ -5076,6 +5122,12 @@ fn updated_fields(update: &TaskUpdate, before: &TaskRecord, after: &TaskRecord) 
         changes.insert(
             "assignees".into(),
             moved(&before.assignee_ids, &after.assignee_ids),
+        );
+    }
+    if before.supervisor_id != after.supervisor_id {
+        changes.insert(
+            "supervisor".into(),
+            json!({ "from": before.supervisor_id, "to": after.supervisor_id }),
         );
     }
     if before.label_ids != after.label_ids {
@@ -5828,7 +5880,7 @@ fn task_columns(backend: Backend, rich: bool, scope: ProjectScope) -> String {
          tasks.source_url, tasks.priority, tasks.position, tasks.creator_id, \
          tasks.completed_at, tasks.external_id, tasks.creator_service_account_id, \
          (SELECT name FROM service_accounts WHERE id = tasks.creator_service_account_id) AS creator_service_account_name, \
-         tasks.due_start_at, tasks.due_at, {} AS recurrence_json, tasks.milestone_id, tasks.cycle_id, tasks.estimate, \
+         tasks.due_start_at, tasks.due_at, {} AS recurrence_json, tasks.milestone_id, tasks.cycle_id, tasks.estimate, tasks.supervisor_id, \
          tasks.version, tasks.deleted_at, tasks.created_at, tasks.updated_at, \
          {} AS duplicate_of_json, \
          EXISTS (SELECT 1 FROM task_relations AS blocker_relation \
@@ -5934,6 +5986,7 @@ fn task_record_from_row(
         creator_service_account_name: row.get("creator_service_account_name"),
         assignee_ids,
         label_ids,
+        supervisor_id: optional_id(row.get("supervisor_id"))?,
         due_start_at: row
             .get::<Option<i64>, _>("due_start_at")
             .map(TimestampMillis::from_millis),
