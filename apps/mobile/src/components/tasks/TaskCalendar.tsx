@@ -3,14 +3,15 @@ import { Pressable, ScrollView, View } from 'react-native'
 
 import { barsOn, calendarWeeks, localeWeekStart, millisSpan, monthTitle, placeSpans, weekdayName, type SpanEntry } from '@orbit/database/calendar'
 import { addMonths, localDay } from '@orbit/database/dates'
-import type { TaskRecord } from '@orbit/api/generated/types.gen'
+import type { StatusRecord, TaskRecord } from '@orbit/api/generated/types.gen'
 import { durationText, rangeText } from '../../data/taskCalendar'
 import { useTheme } from '../../theme'
 import { Icon, Text } from '../../ui'
 
 /** The personal task calendar: a month of days with tasks, and the selected day's tasks below it. */
-export function TaskCalendar({ tasks, onOpen }: { tasks: readonly TaskRecord[]; onOpen: (taskId: string) => void }) {
+export function TaskCalendar({ tasks, statuses, onOpen }: { tasks: readonly TaskRecord[]; statuses: readonly StatusRecord[]; onOpen: (taskId: string) => void }) {
   const { colors } = useTheme()
+  const taskColor = (task: TaskRecord) => statuses.find((status) => status.id === task.status_id)?.color ?? colors.mutedForeground
   const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone
   const weekStart = localeWeekStart()
   const today = useMemo(() => localDay(Date.now(), timeZone), [timeZone])
@@ -53,7 +54,8 @@ export function TaskCalendar({ tasks, onOpen }: { tasks: readonly TaskRecord[]; 
       {weeks.map((week, weekIndex) => (
         <View key={weekIndex} className="flex-row border-t border-border">
           {week.map((day, index) => {
-            const count = barsOn(placeSpans(entries, week), index).length
+            const busy = barsOn(placeSpans(entries, week), index).map((bar) => bar.item)
+            const count = busy.length
             return (
               <Pressable
                 key={day}
@@ -64,7 +66,7 @@ export function TaskCalendar({ tasks, onOpen }: { tasks: readonly TaskRecord[]; 
               >
                 <Text className={`text-[13px] ${day === today ? 'font-noto-semibold text-primary' : 'text-foreground'}`}>{Number(day.slice(-2))}</Text>
                 <View className="mt-1 h-3 flex-row items-center justify-center gap-0.5">
-                  {Array.from({ length: Math.min(count, 3) }, (_, dot) => <View key={dot} className="size-1 rounded-full bg-primary" />)}
+                  {busy.slice(0, 3).map((task) => <View key={task.id} className="size-1 rounded-full" style={{ backgroundColor: taskColor(task) }} />)}
                   {count > 3 ? <Text className="ml-0.5 text-[9px] leading-[12px] text-muted-foreground">+{count - 3}</Text> : null}
                 </View>
               </Pressable>
@@ -75,7 +77,7 @@ export function TaskCalendar({ tasks, onOpen }: { tasks: readonly TaskRecord[]; 
       <View className="mt-3 px-3">
         <Text className="font-noto-semibold text-[14px] text-foreground">{onDay.length === 0 ? 'No tasks on this day' : `${onDay.length} task${onDay.length === 1 ? '' : 's'}`}</Text>
         {onDay.map(({ item }) => (
-          <Pressable key={item.id} accessibilityRole="button" accessibilityLabel={`${item.title}, ${rangeText(item)}`} onPress={() => onOpen(item.id)} className="mt-2 rounded-lg border border-border px-2.5 py-2 active:bg-muted">
+          <Pressable key={item.id} accessibilityRole="button" accessibilityLabel={`${item.title}, ${rangeText(item)}`} onPress={() => onOpen(item.id)} className="mt-2 rounded-lg border border-l-2 border-border px-2.5 py-2 active:bg-muted" style={{ borderLeftColor: taskColor(item) }}>
             <Text className="font-noto-medium text-[14px] text-foreground" numberOfLines={1}>{item.title || 'Untitled'}</Text>
             <Text className="mt-0.5 text-[12px] text-muted-foreground" numberOfLines={1}>{rangeText(item)}</Text>
           </Pressable>

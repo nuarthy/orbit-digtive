@@ -179,7 +179,7 @@ export default function TasksScreen() {
           <LoadingView />
         )
       ) : preset === 'my_calendar' ? (
-        <TaskCalendar tasks={tasks.data} onOpen={(id) => router.push(`/tasks/${id}`)} />
+        <TaskCalendar tasks={tasks.data} statuses={statuses.data ?? []} onOpen={(id) => router.push(`/tasks/${id}`)} />
       ) : (
         <SectionList
           sections={sections}

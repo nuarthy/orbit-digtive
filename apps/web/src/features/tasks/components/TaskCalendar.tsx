@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useState, type CSSProperties } from 'react'
 import { Add, ChevronLeft, ChevronRight } from 'reicon-react'
 import { barsOn, calendarWeeks, localeWeekStart, millisSpan, monthTitle, placeSpans, weekdayName, type SpanEntry } from '@orbit/database/calendar'
 import { addMonths, localDay } from '@orbit/database/dates'
@@ -6,7 +6,7 @@ import { cn } from 'cn'
 import { Button } from '@/components/ui/button'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Tip } from '@/components/common/Tip'
-import type { Task } from '../api/models'
+import type { Task, TaskStatusDef } from '../api/models'
 
 const MAX_LANES = 3
 const LANE_HEIGHT = 28
@@ -14,8 +14,19 @@ const MORE_HEIGHT = 20
 
 interface TaskCalendarProps {
   tasks: readonly Task[]
+  /** Project statuses: their colors and categories drive the bar colors. */
+  statuses: readonly TaskStatusDef[]
   onOpen: (taskId: string) => void
   onAdd: () => void
+}
+
+/** A bar inherits its project status color: grey to do, amber started, green done, etc. */
+export function statusColor(task: Task, statuses: readonly TaskStatusDef[]): string {
+  return statuses.find((status) => status.id === task.statusId)?.color ?? 'var(--primary)'
+}
+
+function barStyle(color: string): CSSProperties {
+  return { backgroundColor: `color-mix(in srgb, ${color} 18%, transparent)`, borderLeft: `3px solid ${color}` }
 }
 
 /** Duration of a task's date range, rounded to hours below a day and whole days above it. */
@@ -39,7 +50,7 @@ function rangeText(task: Task): string {
 }
 
 /** A personal month calendar: each assigned task is a bar from `due_start_at` to `due_at`. */
-export function TaskCalendar({ tasks, onOpen, onAdd }: TaskCalendarProps) {
+export function TaskCalendar({ tasks, statuses, onOpen, onAdd }: TaskCalendarProps) {
   const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone
   const weekStart = localeWeekStart(navigator.language)
   const today = useMemo(() => localDay(Date.now(), timeZone), [timeZone])
@@ -94,6 +105,7 @@ export function TaskCalendar({ tasks, onOpen, onAdd }: TaskCalendarProps) {
                             <DayTasksPopover
                               label={`+${hidden.length} more`}
                               tasks={hidden.map((bar) => bar.item)}
+                              statuses={statuses}
                               onOpen={onOpen}
                             />
                           </div>
@@ -109,11 +121,12 @@ export function TaskCalendar({ tasks, onOpen, onAdd }: TaskCalendarProps) {
                       aria-label={`${bar.item.title} · ${rangeText(bar.item)}`}
                       onClick={() => onOpen(bar.item.id)}
                       className={cn(
-                        'absolute flex items-center gap-1 overflow-hidden rounded bg-primary/15 px-1.5 text-left text-xs text-foreground hover:bg-primary/25',
+                        'absolute flex items-center gap-1 overflow-hidden rounded px-1.5 text-left text-xs text-foreground hover:brightness-110',
                         bar.continuesBefore && 'rounded-l-none',
                         bar.continuesAfter && 'rounded-r-none',
                       )}
                       style={{
+                        ...barStyle(statusColor(bar.item, statuses)),
                         left: `calc(${(bar.column / 7) * 100}% + 2px)`,
                         width: `calc(${(bar.length / 7) * 100}% - 4px)`,
                         top: bar.lane * LANE_HEIGHT + 2,
@@ -141,7 +154,7 @@ export function TaskCalendar({ tasks, onOpen, onAdd }: TaskCalendarProps) {
 }
 
 /** The overflow of one day: all its tasks stay reachable without making the week taller. */
-function DayTasksPopover({ label, tasks, onOpen }: { label: string; tasks: readonly Task[]; onOpen: (taskId: string) => void }) {
+function DayTasksPopover({ label, tasks, statuses, onOpen }: { label: string; tasks: readonly Task[]; statuses: readonly TaskStatusDef[]; onOpen: (taskId: string) => void }) {
   const [open, setOpen] = useState(false)
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -156,11 +169,14 @@ function DayTasksPopover({ label, tasks, onOpen }: { label: string; tasks: reado
             <li key={task.id}>
               <button
                 type="button"
-                className="flex w-full flex-col rounded-md px-2 py-1.5 text-left hover:bg-muted/60"
+                className="flex w-full flex-col gap-0.5 rounded-md px-2 py-1.5 text-left hover:bg-muted/60"
                 onClick={() => { setOpen(false); onOpen(task.id) }}
               >
-                <span className="truncate text-sm text-foreground">{task.title || 'Untitled'}</span>
-                <span className="truncate text-xs text-muted-foreground">{rangeText(task)}</span>
+                <span className="flex items-center gap-1.5">
+                  <span className="size-2 shrink-0 rounded-full" style={{ backgroundColor: statusColor(task, statuses) }} />
+                  <span className="truncate text-sm text-foreground">{task.title || 'Untitled'}</span>
+                </span>
+                <span className="truncate pl-3.5 text-xs text-muted-foreground">{rangeText(task)}</span>
               </button>
             </li>
           ))}

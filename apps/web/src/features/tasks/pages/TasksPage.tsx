@@ -516,7 +516,7 @@ function WorkspaceTasksPage() {
             ) : (
                 <TaskContextMenu tasks={visibleTasks} users={users} labels={labels} statuses={statusesQuery.data} groupContext={groupContext} currentUserId={currentUser.data?.id ?? ''}>
                   {preset === 'my_calendar'
-                    ? <TaskCalendar tasks={visibleTasks} onOpen={openTask} onAdd={() => openNewTask()} />
+                    ? <TaskCalendar tasks={visibleTasks} statuses={statusesQuery.data ?? []} onOpen={openTask} onAdd={() => openNewTask()} />
                     : layout === 'timeline'
                     ? <TaskTimeline ref={timelineRef} key={workspace.id} tasks={visibleTasks} projects={projects} statuses={statusesQuery.data} users={users} groupBy={display.group_by} properties={display.properties} groupContext={groupContext} pxPerDay={pxPerDay} onZoomChange={setPxPerDay} onOpen={openTask} planning={projectFilter ? { milestones, cycles } : null} />
                     : layout === 'board'
