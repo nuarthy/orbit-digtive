@@ -129,8 +129,10 @@ async function createTaskWithAttachment(page: Page) {
   await page.getByRole('button', { name: 'Add label' }).click()
   await page.getByRole('option', { name: 'Unused label' }).click()
   await expect(page.locator('[data-slot="label-pill"]').filter({ hasText: 'Unused label' })).toBeVisible()
+  await page.keyboard.press('Escape')
 
   await page.getByRole('button', { name: /Backlog/ }).click()
+  await expect(page.getByRole('menu')).toBeVisible()
   await page.getByRole('menuitem', { name: 'In Progress' }).click()
   await expect(page.getByRole('button', { name: /In Progress/ })).toBeVisible()
 

@@ -1,5 +1,5 @@
-import { expect, mock, test } from 'bun:test'
-import { fireEvent, render } from '@testing-library/react'
+import { afterEach, beforeEach, expect, mock, test } from 'bun:test'
+import { cleanup, fireEvent, render } from '@testing-library/react'
 import type { Task } from '@/features/tasks/api/models'
 import { TaskTextFields } from './TaskTextFields'
 
@@ -11,6 +11,9 @@ function task(version: number, title: string, description: string): Task {
     updatedAt: '', comments: [], activity: [],
   }
 }
+
+beforeEach(cleanup)
+afterEach(cleanup)
 
 test('authoritative conflict refresh replaces a visible title draft', () => {
   const onUpdate = mock(() => {})
