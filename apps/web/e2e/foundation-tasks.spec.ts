@@ -88,9 +88,9 @@ async function revokeAnotherOwnerSession(page: Page, browser: Browser) {
   await page.goto('/settings/sessions')
   const revoke = page.getByRole('button', { name: 'Revoke' })
   // The second login's cookie can reach the session list a beat after its URL changes.
-  await expect.poll(() => revoke.count(), { timeout: 15_000 }).toBe(1)
+  await expect(revoke).toHaveCount(1, { timeout: 15_000 })
   await revoke.click()
-  await expect.poll(() => revoke.count(), { timeout: 15_000 }).toBe(0)
+  await expect(revoke).toHaveCount(0, { timeout: 15_000 })
 
   await secondSession.goto('/settings')
   await expect(secondSession).toHaveURL(/\/login(?:\?|$)/)
@@ -182,6 +182,8 @@ async function deleteAndRestoreTask(page: Page) {
 }
 
 test('setup through restored task', async ({ page, browser }) => {
+  // This covers five flows in one test; two CI browser workers leave less headroom than a local run.
+  test.setTimeout(180_000)
   await bootstrapOwner(page)
   await createWorkspaceAndInviteMember(page, browser)
   await revokeAnotherOwnerSession(page, browser)

@@ -1531,7 +1531,7 @@ async fn a_read_only_cloud_workspace_syncs_documents_but_drops_edits() {
     let server = Server::start_with(config, fast_config()).await;
     let users = setup(&server).await;
     // Not the exempt root workspace and past its trial, so without a subscription it is read-only.
-    sqlx::query("UPDATE workspaces SET created_at = 0, billing_exempt = 0 WHERE id = $1")
+    sqlx::query("UPDATE workspaces SET created_at = 0, trial_started_at = 0, billing_exempt = 0 WHERE id = $1")
         .bind(&users.workspace)
         .execute(server.database.pool())
         .await
@@ -1565,13 +1565,9 @@ async fn a_read_only_cloud_workspace_syncs_documents_but_drops_edits() {
     let mut editing = Client::open(&server, &users, &users.owner, id).await;
 
     set_status("canceled").await;
-    // The periodic access recheck can be delayed on a busy runner; leave it enough time to fire.
-    editing
-        .pump(Duration::from_secs(15), |client, _| client.closed.is_some())
-        .await;
     assert_eq!(
-        editing.closed,
-        Some(4402),
+        editing.wait_close().await,
+        4402,
         "an editing socket closes once the workspace is read-only"
     );
     let mut a = Client::open(&server, &users, &users.owner, id).await;
@@ -1635,7 +1631,7 @@ async fn a_lapsed_subscription_closes_editing_sockets_on_every_server() {
     let two = Server::start_with(shared(&root_two), config()).await;
     let workspace: Id = users.workspace.parse().unwrap();
     // Not the exempt root workspace and past its trial, so without a subscription it is read-only.
-    sqlx::query("UPDATE workspaces SET created_at = 0, billing_exempt = 0 WHERE id = $1")
+    sqlx::query("UPDATE workspaces SET created_at = 0, trial_started_at = 0, billing_exempt = 0 WHERE id = $1")
         .bind(&users.workspace)
         .execute(one.database.pool())
         .await

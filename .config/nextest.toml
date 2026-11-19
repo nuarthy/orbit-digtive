@@ -1,5 +1,0 @@
-# The read-only socket test waits on a background billing recheck; on a busy runner that timer
-# can miss its window even though the access rule is correct.
-[[profile.default.overrides]]
-filter = 'test(a_read_only_cloud_workspace_syncs_documents_but_drops_edits)'
-retries = { backoff = "fixed", count = 3, delay = "2s" }
