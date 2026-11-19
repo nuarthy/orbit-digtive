@@ -1,4 +1,4 @@
-use orbit_domain::{Actor, DEFAULT_STATUSES, Permission, StatusCategory};
+use orbit_domain::{Actor, DEFAULT_STATUSES, Permission, StatusCategory, WorkspaceRole};
 use orbit_platform::SqlBuilder;
 use orbit_platform::{BLOB_REFERENCE_COUNT, Backend, Database, Flag, Id, Row, TimestampMillis};
 use serde::{Deserialize, Serialize};
@@ -4177,11 +4177,29 @@ pub(super) async fn update_task_in_tx(
         .changes
         .supervisor_only_completion
         .unwrap_or(current.supervisor_only_completion);
-    // The creator sets the rule and the supervisor inherits that right, so an administrator can
+    // The creator sets the rule, the supervisor inherits that right, and workspace admins can
     // always adjust it. Assignees without either role cannot change their own permission.
+    let actor_is_admin = if update.changes.supervisor_only_completion.is_some()
+        || (update.changes.supervisor_id.is_some() && current.supervisor_only_completion)
+    {
+        let actor = require_access_tx(tx, workspace_id, actor_id).await?;
+        matches!(actor.role, WorkspaceRole::Owner | WorkspaceRole::Admin)
+    } else {
+        false
+    };
     if update.changes.supervisor_only_completion.is_some()
         && current.creator_id != Some(actor_id)
         && current.supervisor_id != Some(actor_id)
+        && !actor_is_admin
+    {
+        return Err(TaskError::Forbidden);
+    }
+    // Once completion is supervisor-only, the supervisor is the task's gatekeeper: only they or a
+    // workspace admin may hand that right to someone else. The creator no longer can.
+    if update.changes.supervisor_id.is_some()
+        && current.supervisor_only_completion
+        && current.supervisor_id != Some(actor_id)
+        && !actor_is_admin
     {
         return Err(TaskError::Forbidden);
     }

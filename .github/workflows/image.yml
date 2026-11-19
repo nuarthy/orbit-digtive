@@ -1,11 +1,11 @@
 name: Container image
 
+# Ordinary pushes build a standalone binary in ci.yml; images are only for releases and manual runs.
 on:
-  push:
-    branches: [main]
-  # A published GitHub release also publishes the image as `<version>`, `<major>.<minor>` and `latest`.
+  # A published GitHub release publishes the image as `<version>`, `<major>.<minor>` and `latest`.
   release:
     types: [published]
+  workflow_dispatch:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}

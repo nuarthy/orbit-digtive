@@ -144,7 +144,9 @@ export function TaskDetail({ task, project, state, onClose, onOpenTask, onOpenPr
   const statusOptions = task ? projectStatuses(state.statuses, task.projectId) : []
   const assignees = users.filter((u) => task?.assigneeIds.includes(u.id))
   const supervisor = users.find((u) => u.id === task?.supervisorId)
-  const canChangeCompletionRule = task ? task.creatorId === state.currentUserId || task.supervisorId === state.currentUserId : false
+  const isAdmin = workspace.role === 'owner' || workspace.role === 'admin'
+  const canChangeCompletionRule = task ? task.creatorId === state.currentUserId || task.supervisorId === state.currentUserId || isAdmin : false
+  const canChangeSupervisor = task ? !task.supervisorOnlyCompletion || task.supervisorId === state.currentUserId || isAdmin : true
   const ruleProblem = updateTask.error instanceof ApiProblem && (updateTask.error.code === 'task_completion_forbidden' || fieldErrors(updateTask.error).some((error) => error.path[0] === 'supervisor_only_completion'))
   const updateErrorMessage = ruleProblem && !task?.supervisorId && updateTask.variables?.body.supervisor_only_completion
     ? 'Choose a supervisor before enabling supervisor-only completion.'
@@ -359,12 +361,14 @@ export function TaskDetail({ task, project, state, onClose, onOpenTask, onOpenPr
                 label="Supervisor"
                 placeholder="Set supervisor…"
                 emptyText="No people match"
-                tip="The supervisor may mark this task complete; the assignees may too unless supervisor-only completion is on. Select the same person again to clear it."
+                tip={canChangeSupervisor
+                  ? 'The supervisor may mark this task complete; the assignees may too unless supervisor-only completion is on. Select the same person again to clear it.'
+                  : 'Only the supervisor or a workspace admin can change the supervisor while completion is supervisor-only.'}
                 options={audience.map(personOption)}
                 selected={task.supervisorId ? [task.supervisorId] : []}
                 onSelect={(id) => updateTask.mutate({ taskId: task.id, body: { expected_version: task.version, supervisor_id: task.supervisorId === id ? null : id, ...(task.supervisorId === id && task.supervisorOnlyCompletion ? { supervisor_only_completion: false } : {}) } })}
                 trigger={
-                  <PropertyButton aria-label={`Supervisor: ${supervisor?.name ?? 'none'}`}>
+                  <PropertyButton disabled={!canChangeSupervisor} aria-label={`Supervisor: ${supervisor?.name ?? 'none'}`}>
                     {supervisor ? (
                       <>
                         <UserAvatarStack users={[supervisor]} size={16} />
@@ -379,7 +383,7 @@ export function TaskDetail({ task, project, state, onClose, onOpenTask, onOpenPr
                   </PropertyButton>
                 }
               />
-              <Tip label={canChangeCompletionRule ? 'Who may move this task to a completed status. Choose explicitly; the creator and supervisor can change it at any time.' : 'Only the task creator or the supervisor can change the completion rule.'}>
+              <Tip label={canChangeCompletionRule ? 'Who may move this task to a completed status. Choose explicitly; the creator, supervisor or a workspace admin can change it at any time.' : 'Only the task creator or the supervisor can change the completion rule.'}>
                 <DropdownMenu>
                   <DropdownMenuTrigger
                     render={

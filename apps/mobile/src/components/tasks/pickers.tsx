@@ -91,14 +91,14 @@ export function CompletionRuleChoices({ value, canChange, supervisorAvailable, o
         <SheetRow label="Assignee or supervisor" subtitle="Either may complete the task" checked={!value} onPress={() => { if (canChange) onSelect(false) }} />
         <SheetRow label="Supervisor only" subtitle={supervisorAvailable ? 'Only the supervisor may complete' : 'Choose a supervisor first'} checked={value} onPress={() => { if (canChange && supervisorAvailable) onSelect(true) }} />
         {supervisorAvailable ? null : <SheetNote>Choose a supervisor in Properties first.</SheetNote>}
-        {canChange ? null : <SheetNote tone="destructive">Only the task creator or the supervisor can change this rule.</SheetNote>}
+        {canChange ? null : <SheetNote tone="destructive">Only the task creator, supervisor or a workspace admin can change this rule.</SheetNote>}
       </SheetList>
     </>
   )
 }
 
 /** One workspace member for a task's supervisor, with a clear row like the milestone and cycle pickers. */
-export function SupervisorChoices({ people, value, onSelect }: { people: readonly Person[]; value: string | null; onSelect: (supervisorId: string | null) => void }) {
+export function SupervisorChoices({ people, value, canChange = true, onSelect }: { people: readonly Person[]; value: string | null; canChange?: boolean; onSelect: (supervisorId: string | null) => void }) {
   const [query, setQuery] = useState('')
   const needle = query.trim().toLowerCase()
   const shown = people.filter((person) => !needle || person.name.toLowerCase().includes(needle))
@@ -107,10 +107,11 @@ export function SupervisorChoices({ people, value, onSelect }: { people: readonl
       <SheetSearch value={query} onChange={setQuery} placeholder="Change supervisor…" />
       <SheetList>
         {shown.map((person) => (
-          <SheetRow key={person.id} label={person.name} leading={<Avatar id={person.id} name={person.name} size={20} />} checked={person.id === value} onPress={() => onSelect(person.id)} />
+          <SheetRow key={person.id} label={person.name} leading={<Avatar id={person.id} name={person.name} size={20} />} checked={person.id === value} onPress={() => { if (canChange) onSelect(person.id) }} />
         ))}
         {shown.length === 0 ? <SheetNote>No members match.</SheetNote> : null}
-        {value ? <SheetRow label="No supervisor" icon="close" onPress={() => onSelect(null)} /> : null}
+        {value ? <SheetRow label="No supervisor" icon="close" onPress={() => { if (canChange) onSelect(null) }} /> : null}
+        {canChange ? null : <SheetNote tone="destructive">Only the supervisor or a workspace admin can change this while completion is supervisor-only.</SheetNote>}
       </SheetList>
     </>
   )

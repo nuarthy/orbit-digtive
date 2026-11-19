@@ -1883,7 +1883,14 @@ mod tests {
 
     #[test]
     fn presets_are_valid_fixed_trees() {
-        for name in ["mine", "my_calendar", "overdue", "due_soon", "current_week", "my_week"] {
+        for name in [
+            "mine",
+            "my_calendar",
+            "overdue",
+            "due_soon",
+            "current_week",
+            "my_week",
+        ] {
             let preset = preset_filter(name).unwrap();
             assert_eq!(preset.op, GroupOp::And);
             validate_filter(&preset).unwrap();

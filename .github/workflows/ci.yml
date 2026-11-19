@@ -1,48 +1,201 @@
 name: CI
 
 on:
+  push:
+    branches: [main]
+  pull_request:
   workflow_dispatch:
 
 concurrency:
-  group: ${{ github.workflow }}
-  cancel-in-progress: true
+  group: ${{ github.workflow }}-${{ github.ref }}
+  # Do not cancel a build of main; a later push can still publish its binary artifact.
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+permissions:
+  contents: read
+
+env:
+  CARGO_INCREMENTAL: 0
+  CARGO_TERM_COLOR: always
+  # Prevent the extra work of dev-profile debug data in check/test builds.
+  CARGO_PROFILE_DEV_DEBUG: 0
+  # sccache is installed by the shared Rust setup action in every job that runs cargo.
+  SCCACHE_GHA_ENABLED: "true"
+  RUSTC_WRAPPER: sccache
+  ORBIT_ENV: development
+  ORBIT_APP_KEY: b3JiaXQtZGV2ZWxvcG1lbnQta2V5LW5vdC1zZWNyZXQ=
 
 jobs:
-  gate:
+  # Cheap checks first: a typo should not wait for a compile.
+  format:
+    name: Format and version
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: ./.github/actions/rust-setup
         with:
-          toolchain: 1.97.1
-          components: rustfmt, clippy
-      - uses: Swatinem/rust-cache@v2
-      - uses: oven-sh/setup-bun@v2
+          shared-key: fmt
+          components: rustfmt
+      - run: cargo fmt --all -- --check
+      - name: Check workspace and web versions agree
+        run: |
+          cargo_version=$(sed -n 's/^version = "\([^"]*\)"$/\1/p' Cargo.toml)
+          test -n "$cargo_version"
+          test "$(jq -r .version apps/web/package.json)" = "$cargo_version"
+
+  # One web build, shared by every Rust job: the server embeds apps/web/dist at compile time.
+  web-build:
+    name: Build web assets
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/bun-setup
+      - run: bun install --frozen-lockfile
+      - name: Build with the commit revision
+        env:
+          ORBIT_BUILD_REVISION: ${{ github.sha }}
+        run: bun run build
+        working-directory: apps/web
+      - uses: actions/upload-artifact@v7
         with:
-          bun-version: 1.4.4
-      - uses: actions/cache@v4
+          name: web-dist
+          path: apps/web/dist
+          if-no-files-found: error
+          retention-days: 1
+
+  web-checks:
+    name: Web, API and mobile checks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/bun-setup
+      - run: bun install --frozen-lockfile
+      - run: bun run lint
+        working-directory: apps/web
+      - run: bun run test
+        working-directory: apps/web
+      - run: bun run test
+        working-directory: packages/api
+      - run: bun run test && bun run typecheck
+        working-directory: packages/editor
+      - run: bunx tsc --noEmit -p .
+        working-directory: apps/mobile
+
+  # clippy type-checks all targets, so a separate `cargo check` would duplicate the work.
+  clippy:
+    name: Clippy
+    needs: web-build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v8
         with:
-          path: ~/.bun/install/cache
-          key: bun-${{ runner.os }}-${{ hashFiles('bun.lock') }}
-          restore-keys: bun-${{ runner.os }}-
+          name: web-dist
+          path: apps/web/dist
+      - uses: ./.github/actions/rust-setup
+        with:
+          shared-key: check
+          components: clippy
+      - run: cargo clippy --workspace --all-targets --locked -- -D warnings
+
+  tests:
+    name: Rust tests
+    needs: web-build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v8
+        with:
+          name: web-dist
+          path: apps/web/dist
+      - uses: ./.github/actions/rust-setup
+        with:
+          shared-key: test
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: nextest
+      # nextest runs each test in its own process across all cores, unlike serial cargo test.
+      - run: cargo nextest run --workspace --locked
+      - run: cargo test --workspace --locked --doc
+
+  api-contract:
+    name: Generated API contract
+    needs: web-build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v8
+        with:
+          name: web-dist
+          path: apps/web/dist
+      - uses: ./.github/actions/rust-setup
+        with:
+          shared-key: check
+      - uses: ./.github/actions/bun-setup
+      - run: bun install --frozen-lockfile
+      - name: Generate and diff client artifacts
+        run: |
+          output=$(mktemp -d)
+          cargo run -q -p orbit-server -- openapi --output "$output/openapi.json" >/dev/null
+          (cd apps/web && bun run scripts/generate-api.ts "$output/openapi.json" "$output/client")
+          diff -ru packages/api/src/generated "$output/client"
+
+  # No Docker: the same release binary people download is built and smoke-tested here.
+  binary:
+    name: Build and smoke-test binary
+    needs: web-build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v8
+        with:
+          name: web-dist
+          path: apps/web/dist
+      - uses: ./.github/actions/rust-setup
+        with:
+          shared-key: release
+      - name: Build release binary
+        env:
+          ORBIT_BUILD_REVISION: ${{ github.sha }}
+        run: |
+          cargo build --locked --release -p orbit-server
+          cp target/release/orbit ./orbit
+          chmod +x ./orbit
+      - run: bash deploy/smoke-binary.sh ./orbit
+      - uses: actions/upload-artifact@v7
+        with:
+          name: orbit-linux-x86_64
+          path: orbit
+          if-no-files-found: error
+          retention-days: 1
+
+  e2e:
+    name: Browser end-to-end
+    needs: [web-build, binary]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v8
+        with:
+          name: web-dist
+          path: apps/web/dist
+      - uses: actions/download-artifact@v8
+        with:
+          name: orbit-linux-x86_64
+          path: .
+      - uses: ./.github/actions/bun-setup
       - uses: actions/cache@v4
         with:
           path: ~/.cache/ms-playwright
           key: playwright-${{ runner.os }}-${{ hashFiles('bun.lock') }}
+          restore-keys: playwright-${{ runner.os }}-
       - uses: extractions/setup-just@v3
-      - run: just setup
+      - run: bun install --frozen-lockfile
       - run: bun x playwright install --with-deps chromium
         working-directory: apps/web
-      - run: just check
-      - run: just e2e
-      - uses: docker/setup-buildx-action@v3
-      # Reads the layer cache that the amd64 job of image.yml writes.
-      - uses: docker/build-push-action@v6
-        with:
-          context: .
-          build-args: ORBIT_BUILD_REVISION=${{ github.sha }}
-          tags: orbit:ci
-          load: true
-          cache-from: type=gha,scope=orbit-amd64
-      - run: docker run --rm orbit:ci --help
-      - run: bash deploy/smoke.sh orbit:ci
+      - name: Run Playwright against the built binary
+        env:
+          ORBIT_BIN: ${{ github.workspace }}/orbit
+        run: |
+          chmod +x "$ORBIT_BIN"
+          just e2e

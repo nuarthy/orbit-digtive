@@ -65,7 +65,7 @@ export ORBIT_ENV=production \
 ./orbit serve
 ```
 
-Run under an unprivileged service account and an HTTPS reverse proxy. The binary architecture matches the Docker build platform. The latest commit on `main` publishes one image manifest for `linux/amd64` and `linux/arm64` to `ghcr.io/<owner>/<repository>:<seven-character-commit-sha>` and `:main`. A newer commit cancels an older image build. Each image is built and smoke-tested on a native runner; the image workflow does not use QEMU. Local builds do not publish anything.
+Run under an unprivileged service account and an HTTPS reverse proxy. The binary architecture matches the Docker build platform. Each push to `main` runs CI, which builds and smoke-tests a standalone Linux `x86_64` binary and attaches it to the run as `orbit-linux-x86_64`; it does not build a container image. Container images for `linux/amd64` and `linux/arm64` are published to `ghcr.io/<owner>/<repository>` on a GitHub release (as `<version>`, `<major>.<minor>` and `latest`) or by manually dispatching the image workflow. Each image is built and smoke-tested on a native runner; the image workflow does not use QEMU. Local builds do not publish anything.
 
 ## Versions and releases
 
