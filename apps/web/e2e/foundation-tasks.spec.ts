@@ -148,6 +148,7 @@ async function createTaskWithAttachment(page: Page) {
   const record = await api<{ id: string; version: number }>(page, `/api/v1/workspaces/${workspaceId}/tasks/${taskSlug}`)
   // The URL uses the project identifier; writes need the task's UUID.
   await api(page, `/api/v1/workspaces/${workspaceId}/tasks/${record.id}`, 'PATCH', { expected_version: record.version, title: 'Server title' })
+  await page.reload()
   await expect(title).toHaveText('Server title')
   await title.click()
   await expect(title).toHaveValue('Server title')

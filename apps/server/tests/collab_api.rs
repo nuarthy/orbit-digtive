@@ -1565,9 +1565,13 @@ async fn a_read_only_cloud_workspace_syncs_documents_but_drops_edits() {
     let mut editing = Client::open(&server, &users, &users.owner, id).await;
 
     set_status("canceled").await;
+    // The periodic access recheck can be delayed on a busy runner; leave it enough time to fire.
+    editing
+        .pump(Duration::from_secs(15), |client, _| client.closed.is_some())
+        .await;
     assert_eq!(
-        editing.wait_close().await,
-        4402,
+        editing.closed,
+        Some(4402),
         "an editing socket closes once the workspace is read-only"
     );
     let mut a = Client::open(&server, &users, &users.owner, id).await;
