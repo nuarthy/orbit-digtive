@@ -87,9 +87,10 @@ async function revokeAnotherOwnerSession(page: Page, browser: Browser) {
 
   await page.goto('/settings/sessions')
   const revoke = page.getByRole('button', { name: 'Revoke' })
-  await expect(revoke).toHaveCount(1)
+  // The second login's cookie can reach the session list a beat after its URL changes.
+  await expect.poll(() => revoke.count(), { timeout: 15_000 }).toBe(1)
   await revoke.click()
-  await expect(revoke).toHaveCount(0)
+  await expect.poll(() => revoke.count(), { timeout: 15_000 }).toBe(0)
 
   await secondSession.goto('/settings')
   await expect(secondSession).toHaveURL(/\/login(?:\?|$)/)

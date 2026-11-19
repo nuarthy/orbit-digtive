@@ -2629,7 +2629,7 @@ async fn a_reply_quotes_a_message_of_its_conversation_and_keeps_the_id_of_a_dele
     assert_eq!(sent["result"]["thread_root_id"], Value::Null);
     assert_eq!(
         sent["result"]["reply_to"],
-        json!({ "id": target, "author_id": fixture.owner.id.to_string(), "body": "é".repeat(200), "sticker": false })
+        json!({ "id": target, "author_id": fixture.owner.id.to_string(), "body": "é".repeat(200), "sticker": false, "bot_name": Value::Null })
     );
     // The event that the other members get carries the quote too.
     assert_eq!(sent["events"][0]["type"], "message.created");
