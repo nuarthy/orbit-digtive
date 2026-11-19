@@ -230,7 +230,7 @@ describe('PageEditor', () => {
       return FILE_URL
     })
     const onChange = mock((content: unknown[]) => void content)
-    const { ref } = await renderEditor({ uploadFile, onChange })
+    const { view, ref } = await renderEditor({ uploadFile, onChange })
     await act(async () => ref.current!.focus())
     const editorEl = view.container.querySelector('.bn-editor') as HTMLElement
     const file = new File([new Uint8Array([0x89, 0x50, 0x4e, 0x47])], 'shot.png', { type: 'image/png' })
@@ -253,7 +253,7 @@ describe('PageEditor', () => {
 
   test('reports user edits through onChange with the full, sanitized document', async () => {
     const onChange = mock((content: unknown[]) => void content)
-    const { ref } = await renderEditor({ onChange })
+    const { view, ref } = await renderEditor({ onChange })
     await act(async () => ref.current!.focus())
     const editorEl = view.container.querySelector('.bn-editor') as HTMLElement
     const data: Record<string, string> = { 'text/plain': 'pasted text' }
