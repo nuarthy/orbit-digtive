@@ -68348,7 +68348,10 @@
             "description": "Absent: unchanged. A member id: set the supervisor. `null`: clear it."
           },
           "supervisor_only_completion": {
-            "type": "boolean",
+            "type": [
+              "boolean",
+              "null"
+            ],
             "description": "Absent: unchanged. Only the creator or the current supervisor may change this."
           },
           "title": {
@@ -74943,7 +74946,7 @@
                     },
                     "supervisor_only_completion": {
                       "type": "boolean",
-                      "description": "Whether only the supervisor, rather than the assignees too, may complete this task."
+                      "description": "Whether only the supervisor may complete this task."
                     },
                     "title": {
                       "type": "string"
@@ -83564,7 +83567,7 @@
               },
               "supervisor_only_completion": {
                 "type": "boolean",
-                "description": "Whether only the supervisor, rather than the assignees too, may complete this task."
+                "description": "Whether only the supervisor may complete this task."
               },
               "title": {
                 "type": "string"
@@ -84015,8 +84018,11 @@
             "description": "The member who may complete this task in addition to its assignees; `null` clears it."
           },
           "supervisor_only_completion": {
-            "type": "boolean",
-            "description": "When on, only the supervisor may complete the task; needs `supervisor_id`."
+            "type": [
+              "boolean",
+              "null"
+            ],
+            "description": "Absent: unchanged. Only the creator or the current supervisor may change this."
           },
           "title": {
             "type": [
@@ -87187,7 +87193,10 @@
             "description": "Absent: unchanged. A member id: set the supervisor. `null`: clear it."
           },
           "supervisor_only_completion": {
-            "type": "boolean",
+            "type": [
+              "boolean",
+              "null"
+            ],
             "description": "Absent: unchanged. Only the creator or the current supervisor may change this."
           },
           "title": {

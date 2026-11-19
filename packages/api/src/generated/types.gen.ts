@@ -765,7 +765,7 @@ export type BulkItem = {
     /**
      * Absent: unchanged. Only the creator or the current supervisor may change this.
      */
-    supervisor_only_completion?: boolean;
+    supervisor_only_completion?: boolean | null;
     title?: string | null;
 };
 
@@ -3449,7 +3449,7 @@ export type ListPublicTask = {
          */
         supervisor_id?: string | null;
         /**
-         * Whether only the supervisor, rather than the assignees too, may complete this task.
+         * Whether only the supervisor may complete this task.
          */
         supervisor_only_completion?: boolean;
         title: string;
@@ -7080,7 +7080,7 @@ export type PublicTask = {
      */
     supervisor_id?: string | null;
     /**
-     * Whether only the supervisor, rather than the assignees too, may complete this task.
+     * Whether only the supervisor may complete this task.
      */
     supervisor_only_completion?: boolean;
     title: string;
@@ -7330,9 +7330,9 @@ export type PublicUpdateTaskBody = {
      */
     supervisor_id?: string | null;
     /**
-     * When on, only the supervisor may complete the task; needs `supervisor_id`.
+     * Absent: unchanged. Only the creator or the current supervisor may change this.
      */
-    supervisor_only_completion?: boolean;
+    supervisor_only_completion?: boolean | null;
     /**
      * 1 to 500 characters.
      */
@@ -8552,7 +8552,7 @@ export type TaskUpdateBody = {
     /**
      * Absent: unchanged. Only the creator or the current supervisor may change this.
      */
-    supervisor_only_completion?: boolean;
+    supervisor_only_completion?: boolean | null;
     title?: string | null;
 };
 
