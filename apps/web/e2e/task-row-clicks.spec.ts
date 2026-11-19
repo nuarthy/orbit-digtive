@@ -28,24 +28,24 @@ for (const touch of [false, true]) {
         await route.fulfill({ json: body })
       })
       await page.goto('/tasks?workspace=alpha')
-      await expect(page.locator('.tasks-row')).toHaveCount(2)
+      await expect(page.locator('[data-task-row]')).toHaveCount(2)
     })
 
     test('one click opens the task', async ({ page }) => {
-      const title = page.locator('.tasks-row-title').first()
+      const title = page.locator('[data-task-row]').first().getByText('Task 1')
       if (touch) await title.tap()
       else await title.click()
       await expect(page).toHaveURL(/\/tasks\/task-1\?workspace=alpha$/)
-      await expect(page.locator('.tasks-page')).toHaveAttribute('data-view', 'detail')
+      await expect(page.locator('div[data-view="detail"]')).toBeVisible()
     })
 
     test('inline controls do not open the task and Enter still does', async ({ page }) => {
-      const row = page.locator('.tasks-row').first()
+      const row = page.locator('[data-task-row]').first()
       for (const name of ['Priority: No priority', 'Status: Todo']) {
         const control = row.getByRole('button', { name, exact: true })
         if (touch) await control.tap()
         else await control.click()
-        await expect(page.locator('.popover')).toBeVisible()
+        await expect(page.locator('[data-slot="dropdown-menu-content"]')).toBeVisible()
         await expect(page).toHaveURL(/\/tasks\?workspace=alpha$/)
         await page.keyboard.press('Escape')
       }
@@ -55,8 +55,8 @@ for (const touch of [false, true]) {
     })
 
     test('the hidden selection gutter selects only its row without opening', async ({ page }) => {
-      const rows = page.locator('.tasks-row')
-      await expect(rows.first().locator('.checkbox-box-visual')).toHaveCSS('opacity', '0')
+      const rows = page.locator('[data-task-row]')
+      await expect(rows.first().locator('[data-slot="checkbox"]')).toHaveCSS('opacity', '0')
       for (let i = 0; i < 2; i++) {
         const bounds = (await rows.nth(i).boundingBox())!
         // The left gutter belongs to selection, including padding outside the visible box.

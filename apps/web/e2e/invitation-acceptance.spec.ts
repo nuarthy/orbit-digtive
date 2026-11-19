@@ -64,7 +64,7 @@ for (const mode of ['new', 'existing', 'wrong-account']) {
     }
     await page.getByLabel('Password', { exact: true }).fill('secure-password')
     await page.getByRole('button', { name: mode === 'new' ? 'Accept invitation' : 'Sign in and accept invitation', exact: true }).click()
-    await expect(page).toHaveURL(/\/tasks/)
+    await expect(page).toHaveURL(/\/\?workspace=alpha$/)
     expect(accepted).toBe(true)
     await expect(page.getByRole('button', { name: 'Open sidebar', exact: true })).toBeVisible()
   })

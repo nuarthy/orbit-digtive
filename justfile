@@ -144,6 +144,14 @@ e2e:
     setup_url=$(ORBIT_ENV=development "${runner[@]}" --database "$data_dir/orbit.sqlite" setup-token init --origin http://127.0.0.1:8888)
     ORBIT_ENV=development "${runner[@]}" --database "$data_dir/orbit.sqlite" --attachments "$data_dir/attachments" --backups "$data_dir/backups" serve --listen 127.0.0.1:18080 --origin http://127.0.0.1:8888 &
     server_pid=$!
+    # Playwright waits for Vite on 8888, not for Orbit on 18080. Without this gate a clean
+    # runner can send the first setup request to a proxy whose target is not listening yet.
+    for _ in {1..100}; do
+        if curl -fsS http://127.0.0.1:18080/health/ready >/dev/null; then break; fi
+        kill -0 "$server_pid" 2>/dev/null || { echo 'Orbit exited before readiness' >&2; exit 1; }
+        sleep 0.2
+    done
+    curl -fsS http://127.0.0.1:18080/health/ready >/dev/null
     (cd apps/web && ORBIT_SETUP_URL="$setup_url" bun x playwright test) &
     e2e_pid=$!
     wait -n "$server_pid" "$e2e_pid"

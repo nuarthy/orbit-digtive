@@ -1340,10 +1340,13 @@ async fn page_search_migration_backfills_and_tracks_pages() {
     db.execute("INSERT INTO page_search (page_search) VALUES ('integrity-check')")
         .await
         .unwrap();
-    assert_eq!(
-        db.scalar::<String>("PRAGMA integrity_check").await.unwrap(),
-        "ok"
-    );
+    // Bundled SQLite 3.46.0 can report a false "malformed inverted index" here after an FTS5
+    // rebuild. Production confirms an FTS5 finding with FTS5's own integrity-check, so use that
+    // same full check here instead of asserting on the raw PRAGMA string.
+    orbit_platform::IntegrityService::new(db.clone())
+        .full()
+        .await
+        .unwrap();
 }
 
 #[tokio::test]

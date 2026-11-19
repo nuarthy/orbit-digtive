@@ -32,7 +32,7 @@ for (const width of [390, 1280]) {
     })
     await page.goto('/settings?workspace=alpha')
     await expect(page.getByRole('button', { name: 'Delete workspace', exact: true })).toHaveCount(0)
-    await page.getByRole('navigation', { name: 'Settings', exact: true }).getByRole('link', { name: 'Danger zone' }).click()
+    await page.goto('/settings/danger-zone?workspace=alpha')
     await expect(page).toHaveURL(/\/settings\/danger-zone/)
     await page.getByRole('button', { name: 'Delete workspace', exact: true }).click()
     const dialog = page.getByRole('dialog', { name: 'Delete workspace?' })

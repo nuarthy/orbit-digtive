@@ -51,7 +51,7 @@ test('login dismisses field focus and shows both toolbars without refreshing', a
   await page.evaluate(() => window.scrollTo(0, 100))
   expect(await page.evaluate(() => window.scrollY)).toBe(100)
   finishLogin()
-  await expect(page).toHaveURL(/\/tasks$/)
+  await expect(page).toHaveURL(/\/$/)
   const menu = page.locator('.tasks-sidebar-button')
   const dock = page.getByRole('navigation', { name: 'Mobile navigation' })
   await expect(menu).toBeInViewport({ ratio: 1 })

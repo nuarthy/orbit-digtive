@@ -9,22 +9,43 @@
     <script type="module">
       import React from 'react'
       import { createRoot } from 'react-dom/client'
-      import { Dropdown } from '/src/components/ui/Dropdown.tsx'
+      import {
+        DropdownMenu,
+        DropdownMenuContent,
+        DropdownMenuItem,
+        DropdownMenuTrigger,
+      } from '/src/components/ui/dropdown-menu.tsx'
       import '/src/index.css'
 
-      // A short, clipped card near the viewport edge reproduces table-row menus.
+      const SIZES = ['10', '25', '50', '100']
+
+      function Menu() {
+        return React.createElement(
+          DropdownMenu,
+          null,
+          React.createElement(
+            DropdownMenuTrigger,
+            { render: React.createElement('button', { className: 'button' }, 'Actions') },
+          ),
+          React.createElement(
+            DropdownMenuContent,
+            { align: 'right', sideOffset: 4, className: 'popover max-h-24' },
+            SIZES.map((size) => React.createElement(
+              DropdownMenuItem,
+              { key: size },
+              size,
+            )),
+          ),
+        )
+      }
+
       createRoot(document.getElementById('root')).render(
         React.createElement('div', {
           style: {
             position: 'absolute', bottom: 80, right: 16,
             width: 260, height: 60, overflow: 'hidden', border: '1px solid gray',
           },
-        }, React.createElement(Dropdown, {
-          align: 'right',
-          trigger: () => React.createElement('button', { className: 'button' }, 'Actions'),
-        }, (close) => [10, 25, 50, 100].map((size) => React.createElement('button', {
-          className: 'popover-option', key: size, onClick: close,
-        }, String(size)))))
+        }, React.createElement(Menu)),
       )
     </script>
   </body>

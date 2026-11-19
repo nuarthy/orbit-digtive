@@ -19,7 +19,7 @@ async function bootstrapOwner(page: Page) {
   await page.goto(setupUrl)
   await page.getByLabel('Your name').fill('Orbit Owner')
   await page.getByLabel('Email').fill('owner@orbit.test')
-  await page.getByLabel('Password').fill('correct horse battery staple')
+  await page.getByRole('textbox', { name: 'Password *' }).fill('correct horse battery staple')
   await page.getByRole('button', { name: 'Create root account' }).click()
   await expect(page).toHaveURL(/\/onboarding$/)
   await page.getByLabel('Workspace name').fill('Foundation')
@@ -30,11 +30,11 @@ async function bootstrapOwner(page: Page) {
 
   await page.getByRole('button', { name: 'Account menu for Orbit Owner' }).click()
   await page.getByRole('button', { name: 'Log out' }).click()
-  await expect(page).toHaveURL(/\/login$/)
+  await expect(page).toHaveURL(/\/login(?:\?|$)/)
   await page.getByLabel('Email').fill('owner@orbit.test')
-  await page.getByLabel('Password').fill('correct horse battery staple')
+  await page.getByRole('textbox', { name: 'Password *' }).fill('correct horse battery staple')
   await page.getByRole('button', { name: 'Sign in' }).click()
-  await expect(page).toHaveURL(/\/tasks(?:\?|$)/)
+  await expect(page).toHaveURL(/\/$/)
 }
 
 async function createWorkspaceAndInviteMember(page: Page, browser: Browser) {
@@ -81,9 +81,9 @@ async function revokeAnotherOwnerSession(page: Page, browser: Browser) {
   const secondSession = await secondContext.newPage()
   await secondSession.goto('/login')
   await secondSession.getByLabel('Email').fill('owner@orbit.test')
-  await secondSession.getByLabel('Password').fill('correct horse battery staple')
+  await secondSession.getByRole('textbox', { name: 'Password *' }).fill('correct horse battery staple')
   await secondSession.getByRole('button', { name: 'Sign in' }).click()
-  await expect(secondSession).toHaveURL(/\/tasks(?:\?|$)/)
+  await expect(secondSession).toHaveURL(/\/$/)
 
   await page.goto('/settings/sessions')
   const revoke = page.getByRole('button', { name: 'Revoke' })
@@ -92,7 +92,7 @@ async function revokeAnotherOwnerSession(page: Page, browser: Browser) {
   await expect(revoke).toHaveCount(0)
 
   await secondSession.goto('/settings')
-  await expect(secondSession).toHaveURL(/\/login$/)
+  await expect(secondSession).toHaveURL(/\/login(?:\?|$)/)
   await secondContext.close()
 }
 

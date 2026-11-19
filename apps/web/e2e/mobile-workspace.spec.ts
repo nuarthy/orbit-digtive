@@ -43,6 +43,7 @@ test('Tasks opens the mobile sidebar with workspace selection without an extra h
   await page.keyboard.press('Escape')
   await expect(drawer).not.toBeVisible()
   await page.getByRole('link', { name: 'Settings', exact: true }).click()
+  await page.getByRole('link', { name: 'General', exact: true }).click()
   await topbar.getByRole('button', { name: 'Workspace: Beta' }).click()
   await page.getByRole('button', { name: 'Create workspace', exact: true }).click()
   await page.getByLabel('New workspace').fill('Gamma')

@@ -58,10 +58,10 @@ for (const mode of ['desktop', 'collapsed', 'mobile']) {
     await expect(page.getByRole('menuitem', { name: 'Logging out…' })).toHaveAttribute('aria-disabled', 'true')
     await expect.poll(() => attempts).toBe(2)
     finishLogout()
-    await expect(page).toHaveURL(/\/login$/)
+    await expect(page).toHaveURL(/\/login(?:\?|$)/)
     await expect(page.getByRole('heading', { name: 'Orbit', exact: true })).toBeVisible()
     expect(attempts).toBe(2)
     await page.goto('/tasks?workspace=alpha')
-    await expect(page).toHaveURL(/\/login$/)
+    await expect(page).toHaveURL(/\/login(?:\?|$)/)
   })
 }
