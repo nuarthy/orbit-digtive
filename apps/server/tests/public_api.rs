@@ -403,6 +403,8 @@ async fn read_endpoints_return_public_fields_of_approved_projects_only() {
             "project_id",
             "recurrence",
             "status_id",
+            "supervisor_id",
+            "supervisor_only_completion",
             "title",
             "updated_at",
             "url",
@@ -2062,6 +2064,7 @@ async fn only_owners_and_admins_manage_tokens_and_tokens_follow_their_creator() 
     assert!(f.tokens.list(f.workspace, member).await.unwrap().is_empty());
 
     let (admin_token, admin_token_id) = token_by(&f, admin, false).await.unwrap();
+    // Members only see their own tokens, so another member's token is not even visible to revoke.
     assert!(matches!(
         f.tokens
             .revoke(
@@ -2072,7 +2075,7 @@ async fn only_owners_and_admins_manage_tokens_and_tokens_follow_their_creator() 
                 TimestampMillis::now()
             )
             .await,
-        Err(ApiTokenError::Forbidden)
+        Err(ApiTokenError::NotFound)
     ));
     let (code, _) = f
         .call(Some(&admin_token), "POST", "/tasks", Some(body.clone()))

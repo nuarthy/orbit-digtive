@@ -150,7 +150,7 @@ jobs:
         with:
           tool: nextest
       # nextest runs each test in its own process across all cores, unlike serial cargo test.
-      - run: cargo nextest run --workspace --locked
+      - run: cargo nextest run --workspace --locked --no-fail-fast
       - run: cargo test --workspace --locked --doc
 
   api-contract:
