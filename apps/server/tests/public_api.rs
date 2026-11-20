@@ -2058,10 +2058,8 @@ async fn only_owners_and_admins_manage_tokens_and_tokens_follow_their_creator() 
         token_by(&f, member, true).await,
         Err(ApiTokenError::Forbidden)
     ));
-    assert!(matches!(
-        f.tokens.list(f.workspace, member).await,
-        Err(ApiTokenError::Forbidden)
-    ));
+    // Members can list their own tokens (for personal exports), but cannot create one here.
+    assert!(f.tokens.list(f.workspace, member).await.unwrap().is_empty());
 
     let (admin_token, admin_token_id) = token_by(&f, admin, false).await.unwrap();
     assert!(matches!(
