@@ -1465,7 +1465,7 @@ async fn writes_are_refused_in_a_read_only_cloud_workspace() {
         .await
         .unwrap();
     // Not the exempt root workspace and past its trial, so without a subscription it is read-only.
-    sqlx::query("UPDATE workspaces SET created_at = 0, billing_exempt = 0 WHERE id = $1")
+    sqlx::query("UPDATE workspaces SET created_at = 0, trial_started_at = 0, billing_exempt = 0 WHERE id = $1")
         .bind(f.workspace.to_string())
         .execute(f.database.pool())
         .await
