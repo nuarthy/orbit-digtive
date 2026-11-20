@@ -4113,6 +4113,15 @@ pub(super) async fn update_task_in_tx(
     }
     let project_id = update.changes.project_id.unwrap_or(current.project_id);
     let moves_project = project_id != current.project_id;
+    let actor = require_access_tx(tx, workspace_id, actor_id).await?;
+    if !actor.can_edit_task(
+        current.creator_id,
+        &current.assignee_ids,
+        current.supervisor_id,
+        project_id,
+    ) {
+        return Err(TaskError::Forbidden);
+    }
     let edits_content = update.changes.title.is_some() || update.changes.changes_description();
     if edits_content || moves_project {
         let Flag(linked) = sqlx::query_scalar(
@@ -4179,14 +4188,7 @@ pub(super) async fn update_task_in_tx(
         .unwrap_or(current.supervisor_only_completion);
     // The creator sets the rule, the supervisor inherits that right, and workspace admins can
     // always adjust it. Assignees without either role cannot change their own permission.
-    let actor_is_admin = if update.changes.supervisor_only_completion.is_some()
-        || (update.changes.supervisor_id.is_some() && current.supervisor_only_completion)
-    {
-        let actor = require_access_tx(tx, workspace_id, actor_id).await?;
-        matches!(actor.role, WorkspaceRole::Owner | WorkspaceRole::Admin)
-    } else {
-        false
-    };
+    let actor_is_admin = matches!(actor.role, WorkspaceRole::Owner | WorkspaceRole::Admin);
     if update.changes.supervisor_only_completion.is_some()
         && current.creator_id != Some(actor_id)
         && current.supervisor_id != Some(actor_id)
@@ -4194,10 +4196,10 @@ pub(super) async fn update_task_in_tx(
     {
         return Err(TaskError::Forbidden);
     }
-    // Once completion is supervisor-only, the supervisor is the task's gatekeeper: only they or a
-    // workspace admin may hand that right to someone else. The creator no longer can.
+    // Once a supervisor is set, only that supervisor or a workspace admin may change it. The
+    // creator loses this right too, whether completion is supervisor-only or not.
     if update.changes.supervisor_id.is_some()
-        && current.supervisor_only_completion
+        && current.supervisor_id.is_some()
         && current.supervisor_id != Some(actor_id)
         && !actor_is_admin
     {

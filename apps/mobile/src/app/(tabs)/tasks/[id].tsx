@@ -32,6 +32,7 @@ import { activityRows, buildFeed, type ActivityRow, type CommentThread, foldRun 
 import { relativeAgo } from '../../../data/format'
 import { keys } from '../../../data/keys'
 import { markdownToText } from '../../../data/markdown'
+import { canInProject } from '../../../data/permissions'
 import { mentionedUserIds } from '../../../data/mentions'
 import { linkTaskIdsInMarkdown } from '../../../data/taskIds'
 import * as api from '../../../data/orbit'
@@ -39,6 +40,7 @@ import * as taskApi from '../../../data/task-api'
 import {
   attachmentPath,
   bodyWithFiles,
+  canEditTaskProperties,
   cycleLabel,
   cycleTiming,
   dueDateLabel,
@@ -56,6 +58,7 @@ import {
   sourceHost,
   splitInlineFiles,
   subIssueBody,
+  supervisorChangeConfirmation,
 } from '../../../data/tasks'
 import { useAdoptSubIssue, useCommentAttachments, useCreateTask, useRelationWrites, useSubIssues, useTaskAttachments, useTaskRelations, useTaskWrite } from '../../../hooks/tasks'
 import { useOrbit } from '../../../orbit-context'
@@ -260,8 +263,37 @@ export default function TaskScreen() {
   )
 
   const isAdmin = workspace.role === 'owner' || workspace.role === 'admin'
-  const canChangeCompletionRule = current?.creator_id === user.id || current?.supervisor_id === user.id || isAdmin
-  const canChangeSupervisor = !current?.supervisor_only_completion || current?.supervisor_id === user.id || isAdmin
+  const canEditProperties = current
+    ? canEditTaskProperties(current, user.id, isAdmin || canInProject(workspace, 'projects.manage', current.project_id))
+    : false
+  const canChangeCompletionRule = canEditProperties && current
+    ? current.creator_id === user.id || current.supervisor_id === user.id || isAdmin
+    : false
+  const canChangeSupervisor = canEditProperties && current
+    ? !current.supervisor_id || current.supervisor_id === user.id || isAdmin
+    : false
+  const changeSupervisor = (supervisorId: string | null) => {
+    if (!current) return
+    sheets.close()
+    if (supervisorId === current.supervisor_id) return
+    const confirmation = supervisorChangeConfirmation({
+      currentSupervisorId: current.supervisor_id,
+      nextSupervisorId: supervisorId,
+      currentUserId: user.id,
+      nextSupervisorName: supervisorId ? nameOf(supervisorId) : undefined,
+    })
+    Alert.alert(confirmation.title, confirmation.description, [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: confirmation.confirmLabel,
+        style: confirmation.danger ? 'destructive' : 'default',
+        onPress: () => write.mutate({
+          supervisor_id: supervisorId,
+          ...(!supervisorId && current.supervisor_only_completion ? { supervisor_only_completion: false } : {}),
+        }),
+      },
+    ])
+  }
 
   if (!current) {
     return (
@@ -361,16 +393,17 @@ export default function TaskScreen() {
 
           <View className="border-t border-b border-border py-3.5 flex-row flex-wrap gap-x-3 gap-y-3.5">
             <PropertyGroup title="Properties" full>
+              {canEditProperties ? null : <ChipText muted>Only the creator, assignees, supervisor, or an admin can change these.</ChipText>}
               <View className="flex-row flex-wrap gap-1">
-                <Chip pull label={`Status: ${status?.name ?? 'None'}`} onPress={ownStatuses.length > 0 ? () => sheets.open({ kind: 'status' }) : undefined}>
+                <Chip disabled={!canEditProperties} pull label={`Status: ${status?.name ?? 'None'}`} onPress={ownStatuses.length > 0 ? () => sheets.open({ kind: 'status' }) : undefined}>
                   <StatusIcon status={status} size={16} />
                   <ChipText>{status?.name ?? 'No status'}</ChipText>
                 </Chip>
-                <Chip pull label={`Priority: ${PRIORITY_LABEL[priorityOf(current)]}`} onPress={() => sheets.open({ kind: 'priority' })}>
+                <Chip disabled={!canEditProperties} pull label={`Priority: ${PRIORITY_LABEL[priorityOf(current)]}`} onPress={() => sheets.open({ kind: 'priority' })}>
                   <PriorityIcon priority={current.priority} size={16} />
                   <ChipText>{priorityOf(current) === 'none' ? 'Set priority' : PRIORITY_LABEL[priorityOf(current)]}</ChipText>
                 </Chip>
-                <Chip pull label="Assignees" onPress={() => sheets.open({ kind: 'assignees' })}>
+                <Chip disabled={!canEditProperties} pull label="Assignees" onPress={() => sheets.open({ kind: 'assignees' })}>
                   {current.assignee_ids.length === 0 ? (
                     <>
                       <Icon name="user" size={14} color={colors.mutedForeground} />
@@ -385,17 +418,18 @@ export default function TaskScreen() {
                     </>
                   )}
                 </Chip>
-                <Chip pull label={current.supervisor_id ? `Supervisor: ${nameOf(current.supervisor_id)}` : 'Set supervisor'} onPress={() => sheets.open({ kind: 'supervisor' })}>
+                <Chip disabled={!canChangeSupervisor} pull label={current.supervisor_id ? `Supervisor: ${nameOf(current.supervisor_id)}` : 'Set supervisor'} onPress={() => sheets.open({ kind: 'supervisor' })}>
                   {current.supervisor_id ? <Avatar id={current.supervisor_id} name={nameOf(current.supervisor_id)} size={16} /> : <Icon name="user" size={14} color={colors.mutedForeground} />}
                   <ChipText muted={!current.supervisor_id}>{current.supervisor_id ? nameOf(current.supervisor_id) : 'Supervisor'}</ChipText>
                 </Chip>
-                <Chip pull label={current.supervisor_only_completion ? 'Completion: Supervisor only' : 'Completion: Assignee or supervisor'} onPress={() => sheets.open({ kind: 'completion-rule' })}>
+                <Chip disabled={!canChangeCompletionRule} pull label={current.supervisor_only_completion ? 'Completion: Supervisor only' : 'Completion: Assignee or supervisor'} onPress={() => sheets.open({ kind: 'completion-rule' })}>
                   <Icon name="check" size={14} color={current.supervisor_only_completion ? colors.primary : colors.mutedForeground} />
                   <ChipText muted={!current.supervisor_only_completion}>{current.supervisor_only_completion ? 'Supervisor only' : 'Assignee or supervisor'}</ChipText>
                 </Chip>
               </View>
               <View className="flex-row mt-1 -ml-2">
                 <Chip
+                  disabled={!canEditProperties}
                   label={current.parent ? `Parent: ${refIdentifier(current.parent)} ${current.parent.title}` : 'Set parent'}
                   onPress={() => sheets.open(current.parent ? { kind: 'parent-menu' } : { kind: 'pick-task', purpose: 'parent' })}
                 >
@@ -414,7 +448,7 @@ export default function TaskScreen() {
             <PropertyGroup title="Labels">
               {taskLabels.length === 0 ? (
                 <View className="-ml-2 flex-row">
-                  <Chip label="Add label" onPress={() => sheets.open({ kind: 'labels' })}>
+                  <Chip disabled={!canEditProperties} label="Add label" onPress={() => sheets.open({ kind: 'labels' })}>
                     <Icon name="tag" size={14} color={colors.mutedForeground} />
                     <ChipText muted>Add label</ChipText>
                   </Chip>
@@ -423,8 +457,9 @@ export default function TaskScreen() {
                 <Pressable
                   accessibilityRole="button"
                   accessibilityLabel={`Labels: ${taskLabels.map((label) => label.name).join(', ')}`}
+                  disabled={!canEditProperties}
                   onPress={() => sheets.open({ kind: 'labels' })}
-                  className="flex-row flex-wrap gap-1"
+                  className={`flex-row flex-wrap gap-1 ${canEditProperties ? '' : 'opacity-50'}`}
                 >
                   {taskLabels.map((label) => (
                     <LabelPill key={label.id} label={label} />
@@ -444,14 +479,14 @@ export default function TaskScreen() {
                 </Pressable>
               ) : null}
               <View className="-ml-2 flex-row">
-                <Chip label={current.source_url ? 'Edit source' : 'Add source'} onPress={() => sheets.open({ kind: 'source' })}>
+                <Chip disabled={!canEditProperties} label={current.source_url ? 'Edit source' : 'Add source'} onPress={() => sheets.open({ kind: 'source' })}>
                   <ChipText muted>{current.source_url ? 'Edit source' : 'Add source'}</ChipText>
                 </Chip>
               </View>
             </PropertyGroup>
             <PropertyGroup title="Due date">
               <View className="-ml-2 flex-row">
-                <Chip label="Due date" onPress={() => sheets.open({ kind: 'due' })}>
+                <Chip disabled={!canEditProperties} label="Due date" onPress={() => sheets.open({ kind: 'due' })}>
                   <Icon name="calendar" size={14} color={colors.foreground} />
                   <ChipText>{dueDateLabel(current.due_at, current.due_start_at)}</ChipText>
                 </Chip>
@@ -459,7 +494,7 @@ export default function TaskScreen() {
             </PropertyGroup>
             <PropertyGroup title="Repeat">
               <View className="-ml-2 flex-row">
-                <Chip label="Repeat" onPress={() => sheets.open({ kind: 'repeat' })}>
+                <Chip disabled={!canEditProperties} label="Repeat" onPress={() => sheets.open({ kind: 'repeat' })}>
                   <Icon name="repeat" size={14} color={current.recurrence ? colors.foreground : colors.mutedForeground} />
                   <ChipText muted={!current.recurrence}>{recurrenceLabel(current.recurrence)}</ChipText>
                 </Chip>
@@ -467,7 +502,7 @@ export default function TaskScreen() {
             </PropertyGroup>
             <PropertyGroup title="Milestone">
               <View className="-ml-2 flex-row max-w-full">
-                <Chip label={milestone ? `Milestone: ${milestone.name}` : 'Set milestone'} onPress={() => sheets.open({ kind: 'milestone' })}>
+                <Chip disabled={!canEditProperties} label={milestone ? `Milestone: ${milestone.name}` : 'Set milestone'} onPress={() => sheets.open({ kind: 'milestone' })}>
                   <Icon name="target" size={14} color={milestone ? colors.foreground : colors.mutedForeground} />
                   <ChipText muted={!current.milestone_id}>{milestone?.name ?? (current.milestone_id ? 'Milestone' : 'Set milestone')}</ChipText>
                 </Chip>
@@ -475,7 +510,7 @@ export default function TaskScreen() {
             </PropertyGroup>
             <PropertyGroup title="Cycle">
               <View className="-ml-2 flex-row max-w-full">
-                <Chip label={cycle ? `Cycle: ${cycleText}` : 'Add to cycle'} onPress={() => sheets.open({ kind: 'cycle' })}>
+                <Chip disabled={!canEditProperties} label={cycle ? `Cycle: ${cycleText}` : 'Add to cycle'} onPress={() => sheets.open({ kind: 'cycle' })}>
                   <Icon name="refresh" size={14} color={cycle ? colors.foreground : colors.mutedForeground} />
                   <ChipText muted={!current.cycle_id}>{cycleText}</ChipText>
                 </Chip>
@@ -483,7 +518,7 @@ export default function TaskScreen() {
             </PropertyGroup>
             <PropertyGroup title="Estimate">
               <View className="-ml-2 flex-row">
-                <Chip label={current.estimate === null ? 'Set estimate' : `Estimate: ${estimateLabel(current.estimate)}`} onPress={() => sheets.open({ kind: 'estimate' })}>
+                <Chip disabled={!canEditProperties} label={current.estimate === null ? 'Set estimate' : `Estimate: ${estimateLabel(current.estimate)}`} onPress={() => sheets.open({ kind: 'estimate' })}>
                   <Icon name="chart" size={14} color={current.estimate === null ? colors.mutedForeground : colors.foreground} />
                   <ChipText muted={current.estimate === null}>{current.estimate === null ? 'Set estimate' : estimateLabel(current.estimate)}</ChipText>
                 </Chip>
@@ -552,7 +587,7 @@ export default function TaskScreen() {
           />
         ) : null}
         {sheet?.kind === 'assignees' ? <PeopleChoices people={people.filter((person) => seesProject(person.id))} value={current.assignee_ids} onChange={(ids) => write.mutate({ assignee_ids: ids })} /> : null}
-        {sheet?.kind === 'supervisor' ? <SupervisorChoices people={people.filter((person) => seesProject(person.id))} value={current.supervisor_id ?? null} canChange={canChangeSupervisor && !write.isPending} onSelect={(supervisorId) => { sheets.close(); write.mutate({ supervisor_id: supervisorId, ...(!supervisorId && current.supervisor_only_completion ? { supervisor_only_completion: false } : {}) }) }} /> : null}
+        {sheet?.kind === 'supervisor' ? <SupervisorChoices people={people.filter((person) => seesProject(person.id))} value={current.supervisor_id ?? null} canChange={canChangeSupervisor && !write.isPending} onSelect={changeSupervisor} /> : null}
         {sheet?.kind === 'completion-rule' ? <CompletionRuleChoices value={current.supervisor_only_completion ?? false} canChange={canChangeCompletionRule && !write.isPending} supervisorAvailable={!!current.supervisor_id} onSelect={(supervisorOnly) => { sheets.close(); if (supervisorOnly !== (current.supervisor_only_completion ?? false)) write.mutate({ supervisor_only_completion: supervisorOnly }) }} /> : null}
         {sheet?.kind === 'labels' ? <LabelChoices projectId={current.project_id} value={current.label_ids} onChange={(ids) => write.mutate({ label_ids: ids })} /> : null}
         {sheet?.kind === 'due' ? (
@@ -679,14 +714,15 @@ function PropertyGroup({ title, full = false, children }: { title: string; full?
 }
 
 /** The web `PropertyButton` at phone size: a 28px ghost button with 12px text. */
-function Chip({ label, onPress, pull = false, children }: { label: string; onPress?: () => void; /** The web's `-ml-2`: each chip of a wrapping row starts 8px left. */ pull?: boolean; children: ReactNode }) {
+function Chip({ label, onPress, pull = false, disabled = false, children }: { label: string; onPress?: () => void; /** The web's `-ml-2`: each chip of a wrapping row starts 8px left. */ pull?: boolean; disabled?: boolean; children: ReactNode }) {
+  const inactive = disabled || !onPress
   return (
     <Pressable
-      accessibilityRole={onPress ? 'button' : undefined}
+      accessibilityRole={inactive ? undefined : 'button'}
       accessibilityLabel={label}
-      disabled={!onPress}
+      disabled={inactive}
       onPress={onPress}
-      className={`h-7 max-w-full flex-row items-center gap-1.5 px-1.5 rounded-lg active:bg-muted ${pull ? '-ml-2' : 'ml-0'}`}
+      className={`h-7 max-w-full flex-row items-center gap-1.5 px-1.5 rounded-lg active:bg-muted ${pull ? '-ml-2' : 'ml-0'} ${inactive ? 'opacity-50' : ''}`}
     >
       {children}
     </Pressable>

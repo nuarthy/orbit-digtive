@@ -1,6 +1,6 @@
 import { expect, test } from 'bun:test'
 import type { Task } from '@/features/tasks/api/models'
-import { activityChangeText, quickSearchTasks } from './tasksLib'
+import { activityChangeText, canEditTaskProperties, quickSearchTasks, supervisorChangeConfirmation } from './tasksLib'
 
 function task(id: string, statusId: string, position: number, version: number): Task {
   return {
@@ -20,6 +20,35 @@ test('quick search matches title, description and identifier in memory', () => {
   expect(quickSearchTasks([title, description], 'orb-1').map(({ id }) => id)).toEqual(['ORB-1'])
   const all = [title, description]
   expect(quickSearchTasks(all, '  ')).toBe(all)
+})
+
+test('supervisor change warning explains who keeps the right', () => {
+  expect(supervisorChangeConfirmation({
+    currentSupervisorId: 'me', nextSupervisorId: 'bo', currentUserId: 'me', nextSupervisorName: 'Bo',
+  })).toEqual({
+    title: 'Change supervisor to Bo?',
+    description: 'You will no longer be able to change the supervisor. Only Bo or a workspace admin will be able to change it later.',
+    confirmLabel: 'Change supervisor',
+    danger: true,
+  })
+  expect(supervisorChangeConfirmation({
+    currentSupervisorId: null, nextSupervisorId: 'me', currentUserId: 'me', nextSupervisorName: 'Me',
+  }).description).toBe('You will become the supervisor. Only you or a workspace admin will be able to change it later.')
+  expect(supervisorChangeConfirmation({
+    currentSupervisorId: 'ada', nextSupervisorId: 'bo', currentUserId: 'admin', nextSupervisorName: 'Bo',
+  }).description).toBe('Only Bo or a workspace admin will be able to change it later.')
+  expect(supervisorChangeConfirmation({
+    currentSupervisorId: 'ada', nextSupervisorId: null, currentUserId: 'admin',
+  }).description).toBe('Supervisor-only completion turns off if it is on. Any member who can edit this task can choose a new supervisor.')
+})
+
+test('only task people and admins can edit properties', () => {
+  const record = { creatorId: 'creator', assigneeIds: ['assignee'], supervisorId: 'supervisor' }
+  expect(canEditTaskProperties(record, 'creator', false)).toBe(true)
+  expect(canEditTaskProperties(record, 'assignee', false)).toBe(true)
+  expect(canEditTaskProperties(record, 'supervisor', false)).toBe(true)
+  expect(canEditTaskProperties(record, 'admin', true)).toBe(true)
+  expect(canEditTaskProperties(record, 'stranger', false)).toBe(false)
 })
 
 test('activity sentences name the changed values', () => {

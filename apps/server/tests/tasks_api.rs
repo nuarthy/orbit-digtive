@@ -4378,6 +4378,251 @@ async fn only_supervisor_or_admin_can_change_the_supervisor_of_a_supervised_task
 }
 
 #[tokio::test]
+async fn only_task_people_and_admins_can_change_task_properties() {
+    let fixture = Fixture::new().await;
+    let (_creator_id, creator_cookie) = add_member(&fixture, "creator@example.com").await;
+    let (outsider_id, outsider_cookie) = add_member(&fixture, "outsider@example.com").await;
+    let (_supervisor_id, supervisor_cookie) = add_member(&fixture, "supervisor@example.com").await;
+
+    async fn patch(
+        fixture: &Fixture,
+        cookie: &str,
+        uri: &str,
+        version: Value,
+        body: Value,
+    ) -> (StatusCode, Value) {
+        let mut value = body;
+        value["expected_version"] = version;
+        let response = fixture
+            .app
+            .clone()
+            .oneshot(json_request("PATCH", uri, cookie, value))
+            .await
+            .unwrap();
+        let status = response.status();
+        (status, response_json(response).await)
+    }
+
+    let created = fixture
+        .app
+        .clone()
+        .oneshot(json_request(
+            "POST",
+            &format!("/api/v1/workspaces/{}/tasks", fixture.workspace_id),
+            &creator_cookie,
+            json!({
+                "project_id": fixture.project_id,
+                "status_id": fixture.status_id,
+                "title": "Property access",
+            }),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(created.status(), StatusCode::CREATED);
+    let task = response_json(created).await;
+    let uri = task_uri(&fixture, id_of(&task));
+
+    // An unrelated member sees the task but cannot change its properties.
+    let (status, _) = patch(
+        &fixture,
+        &outsider_cookie,
+        &uri,
+        task["version"].clone(),
+        json!({ "priority": "high" }),
+    )
+    .await;
+    assert_eq!(status, StatusCode::FORBIDDEN);
+
+    // The creator, an assignee, and the supervisor can each edit.
+    let (status, edited) = patch(
+        &fixture,
+        &creator_cookie,
+        &uri,
+        task["version"].clone(),
+        json!({ "priority": "high" }),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+
+    let (status, assigned) = patch(
+        &fixture,
+        &creator_cookie,
+        &uri,
+        edited["version"].clone(),
+        json!({ "assignee_ids": [outsider_id] }),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+
+    let (status, by_assignee) = patch(
+        &fixture,
+        &outsider_cookie,
+        &uri,
+        assigned["version"].clone(),
+        json!({ "priority": "medium" }),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+
+    let (status, supervised) = patch(
+        &fixture,
+        &creator_cookie,
+        &uri,
+        by_assignee["version"].clone(),
+        json!({ "supervisor_id": supervisor_id, "assignee_ids": [] }),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+
+    let (status, _) = patch(
+        &fixture,
+        &outsider_cookie,
+        &uri,
+        supervised["version"].clone(),
+        json!({ "priority": "low" }),
+    )
+    .await;
+    assert_eq!(status, StatusCode::FORBIDDEN);
+
+    let (status, by_supervisor) = patch(
+        &fixture,
+        &supervisor_cookie,
+        &uri,
+        supervised["version"].clone(),
+        json!({ "priority": "low" }),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+
+    let (status, _) = patch(
+        &fixture,
+        &fixture.owner_cookie,
+        &uri,
+        by_supervisor["version"].clone(),
+        json!({ "priority": "urgent" }),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+}
+
+#[tokio::test]
+async fn only_the_supervisor_or_admin_can_reassign_an_assigned_supervisor() {
+    let fixture = Fixture::new().await;
+    let (creator_id, creator_cookie) = add_member(&fixture, "creator@example.com").await;
+    let (supervisor_id, supervisor_cookie) = add_member(&fixture, "supervisor@example.com").await;
+    let (other_id, other_cookie) = add_member(&fixture, "other@example.com").await;
+
+    async fn patch(
+        fixture: &Fixture,
+        cookie: &str,
+        uri: &str,
+        version: Value,
+        body: Value,
+    ) -> (StatusCode, Value) {
+        let mut value = body;
+        value["expected_version"] = version;
+        let response = fixture
+            .app
+            .clone()
+            .oneshot(json_request("PATCH", uri, cookie, value))
+            .await
+            .unwrap();
+        let status = response.status();
+        (status, response_json(response).await)
+    }
+
+    // Any member who can edit an unassigned task may set the first supervisor.
+    let created = fixture
+        .app
+        .clone()
+        .oneshot(json_request(
+            "POST",
+            &format!("/api/v1/workspaces/{}/tasks", fixture.workspace_id),
+            &creator_cookie,
+            json!({
+                "project_id": fixture.project_id,
+                "status_id": fixture.status_id,
+                "title": "Assigned supervisor",
+            }),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(created.status(), StatusCode::CREATED);
+    let task = response_json(created).await;
+    assert_eq!(
+        creator_id,
+        task["creator_id"].as_str().unwrap().parse::<Id>().unwrap()
+    );
+    let uri = task_uri(&fixture, id_of(&task));
+    let (status, assigned) = patch(
+        &fixture,
+        &creator_cookie,
+        &uri,
+        task["version"].clone(),
+        json!({ "supervisor_id": supervisor_id }),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(assigned["supervisor_id"], supervisor_id.to_string());
+    assert_eq!(assigned["supervisor_only_completion"], false);
+
+    // With the ordinary completion rule still on, only the supervisor and admins can reassign.
+    let (status, _) = patch(
+        &fixture,
+        &other_cookie,
+        &uri,
+        assigned["version"].clone(),
+        json!({ "supervisor_id": other_id }),
+    )
+    .await;
+    assert_eq!(status, StatusCode::FORBIDDEN);
+    let (status, _) = patch(
+        &fixture,
+        &creator_cookie,
+        &uri,
+        assigned["version"].clone(),
+        json!({ "supervisor_id": creator_id }),
+    )
+    .await;
+    assert_eq!(status, StatusCode::FORBIDDEN);
+
+    let (status, handed) = patch(
+        &fixture,
+        &supervisor_cookie,
+        &uri,
+        assigned["version"].clone(),
+        json!({ "supervisor_id": other_id }),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(handed["supervisor_id"], other_id.to_string());
+    assert_eq!(handed["supervisor_only_completion"], false);
+
+    let (status, restored) = patch(
+        &fixture,
+        &fixture.owner_cookie,
+        &uri,
+        handed["version"].clone(),
+        json!({ "supervisor_id": supervisor_id }),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(restored["supervisor_id"], supervisor_id.to_string());
+
+    // Clearing it returns the choice to every member who can edit the task.
+    let (status, cleared) = patch(
+        &fixture,
+        &supervisor_cookie,
+        &uri,
+        restored["version"].clone(),
+        json!({ "supervisor_id": null }),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert!(cleared["supervisor_id"].is_null());
+}
+
+#[tokio::test]
 async fn completed_at_follows_status_category_edits() {
     let fixture = Fixture::new().await;
     let task = fixture.create_task("Shipped").await;

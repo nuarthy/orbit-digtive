@@ -111,7 +111,7 @@ export function SupervisorChoices({ people, value, canChange = true, onSelect }:
         ))}
         {shown.length === 0 ? <SheetNote>No members match.</SheetNote> : null}
         {value ? <SheetRow label="No supervisor" icon="close" onPress={() => { if (canChange) onSelect(null) }} /> : null}
-        {canChange ? null : <SheetNote tone="destructive">Only the supervisor or a workspace admin can change this while completion is supervisor-only.</SheetNote>}
+        {canChange ? null : <SheetNote tone="destructive">Only the supervisor or a workspace admin can change this while one is set.</SheetNote>}
       </SheetList>
     </>
   )

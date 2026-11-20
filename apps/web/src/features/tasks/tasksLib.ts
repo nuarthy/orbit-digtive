@@ -53,6 +53,57 @@ export function commentThreads(task: Task): CommentThread[] {
     .map((root) => ({ root, replies: task.comments.filter((c) => c.parentId === root.id).sort(byTime) }))
 }
 
+/** Who may change a task's properties: its creator, an assignee, its supervisor, or a project admin. */
+export function canEditTaskProperties(
+  task: { creatorId?: string | null; assigneeIds?: readonly string[]; supervisorId?: string | null },
+  currentUserId: string,
+  isAdminOrManager: boolean,
+): boolean {
+  return isAdminOrManager
+    || task.creatorId === currentUserId
+    || (task.assigneeIds?.includes(currentUserId) ?? false)
+    || task.supervisorId === currentUserId
+}
+
+/** The confirmation shown before handing the supervisor role to someone else. */
+export function supervisorChangeConfirmation({
+  currentSupervisorId,
+  nextSupervisorId,
+  currentUserId,
+  nextSupervisorName,
+}: {
+  currentSupervisorId: string | null | undefined
+  nextSupervisorId: string | null
+  currentUserId: string
+  nextSupervisorName?: string
+}) {
+  if (!nextSupervisorId) {
+    const givingUp = currentSupervisorId === currentUserId
+    return {
+      title: 'Remove the supervisor?',
+      description: `${givingUp ? 'You give up the supervisor role and ' : ''}Supervisor-only completion turns off if it is on. Any member who can edit this task can choose a new supervisor.`,
+      confirmLabel: 'Remove supervisor',
+      danger: givingUp,
+    }
+  }
+  const name = nextSupervisorName ?? 'another member'
+  if (nextSupervisorId === currentUserId) {
+    return {
+      title: `Change supervisor to ${name}?`,
+      description: 'You will become the supervisor. Only you or a workspace admin will be able to change it later.',
+      confirmLabel: 'Change supervisor',
+      danger: false,
+    }
+  }
+  const givingUp = currentSupervisorId === currentUserId
+  return {
+    title: `Change supervisor to ${name}?`,
+    description: `${givingUp ? 'You will no longer be able to change the supervisor. ' : ''}Only ${name} or a workspace admin will be able to change it later.`,
+    confirmLabel: 'Change supervisor',
+    danger: givingUp,
+  }
+}
+
 /** "2d ago" style label; falls back to a short date for older items. */
 export function agoLabel(iso: string): string {
   const label = relativeTime(iso)

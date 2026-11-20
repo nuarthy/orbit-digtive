@@ -351,6 +351,22 @@ impl Actor {
             || (private && self.can(Permission::ProjectsViewPrivate))
     }
 
+    /// Only the creator, an assignee, the supervisor, or someone who manages the project may
+    /// change a task's properties. Every other member sees it read-only.
+    #[must_use]
+    pub fn can_edit_task(
+        &self,
+        creator_id: Option<Id>,
+        assignee_ids: &[Id],
+        supervisor_id: Option<Id>,
+        project_id: Id,
+    ) -> bool {
+        creator_id == Some(self.user_id)
+            || assignee_ids.contains(&self.user_id)
+            || supervisor_id == Some(self.user_id)
+            || self.can_manage_project(project_id)
+    }
+
     /// Only the author rewrites a task comment. `author_id` is `None` for a comment that a
     /// service account wrote: no member is its author.
     #[must_use]

@@ -103,6 +103,57 @@ export const isCompletionForbidden = (error: unknown) => error instanceof ApiPro
 
 export const isSupervisorRequired = (error: unknown) => error instanceof ApiProblem && error.problem.errors != null && 'supervisor_only_completion' in error.problem.errors
 
+/** Who may change a task's properties: its creator, an assignee, its supervisor, or a project admin. */
+export function canEditTaskProperties(
+  task: { creator_id?: string | null; assignee_ids?: readonly string[]; supervisor_id?: string | null },
+  userId: string,
+  isAdminOrManager: boolean,
+): boolean {
+  return isAdminOrManager
+    || task.creator_id === userId
+    || (task.assignee_ids?.includes(userId) ?? false)
+    || task.supervisor_id === userId
+}
+
+/** The confirmation shown before handing the supervisor role to someone else. */
+export function supervisorChangeConfirmation({
+  currentSupervisorId,
+  nextSupervisorId,
+  currentUserId,
+  nextSupervisorName,
+}: {
+  currentSupervisorId: string | null | undefined
+  nextSupervisorId: string | null
+  currentUserId: string
+  nextSupervisorName?: string
+}) {
+  if (!nextSupervisorId) {
+    const givingUp = currentSupervisorId === currentUserId
+    return {
+      title: 'Remove the supervisor?',
+      description: `${givingUp ? 'You give up the supervisor role and ' : ''}Supervisor-only completion turns off if it is on. Any member who can edit this task can choose a new supervisor.`,
+      confirmLabel: 'Remove supervisor',
+      danger: givingUp,
+    }
+  }
+  const name = nextSupervisorName ?? 'another member'
+  if (nextSupervisorId === currentUserId) {
+    return {
+      title: `Change supervisor to ${name}?`,
+      description: 'You will become the supervisor. Only you or a workspace admin will be able to change it later.',
+      confirmLabel: 'Change supervisor',
+      danger: false,
+    }
+  }
+  const givingUp = currentSupervisorId === currentUserId
+  return {
+    title: `Change supervisor to ${name}?`,
+    description: `${givingUp ? 'You will no longer be able to change the supervisor. ' : ''}Only ${name} or a workspace admin will be able to change it later.`,
+    confirmLabel: 'Change supervisor',
+    danger: givingUp,
+  }
+}
+
 // ---- properties
 
 /** The order of the priority menus (task detail and New task), as the web's. */

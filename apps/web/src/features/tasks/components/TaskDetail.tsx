@@ -39,6 +39,7 @@ import {
   subIssuesQuery, useSubIssues, useTaskGithubLinks, useTaskRelations, useUpdateTask,
 } from '@/features/tasks/api/tasks'
 import { pickerTitle, relatedTaskIds, type RelationKind } from '@/features/tasks/relationsLib'
+import { canEditTaskProperties, supervisorChangeConfirmation } from '@/features/tasks/tasksLib'
 import { useDuplicateActions } from '@/features/tasks/useDuplicateActions'
 import { useParentActions } from '@/features/tasks/useParentActions'
 import { useMoveToProject } from '@/features/tasks/useMoveToProject'
@@ -50,6 +51,7 @@ import { TaskBreadcrumb } from './TaskBreadcrumb'
 import { SubIssuesSection } from './TaskSubIssues'
 import { useWorkspace } from '@/features/workspaces/workspaceContext'
 import { useWorkspaceReadOnly } from '@/features/workspaces/billing'
+import { useCanIn } from '@/features/workspaces/permissions'
 import { Attachments } from '@/components/common/Attachments'
 import { ActivityFeed } from './ActivityFeed'
 import { TaskCommentComposer } from './TaskCommentComposer'
@@ -79,6 +81,7 @@ export function TaskDetail({ task, project, state, onClose, onOpenTask, onOpenPr
   const deleteTask = useDeleteTask(workspace.id)
   const githubLinks = useTaskGithubLinks(workspace.id, task?.id)
   const workspaceReadOnly = useWorkspaceReadOnly()
+  const canManageProject = useCanIn('projects.manage', task?.projectId)
   const githubContentReadOnly = !githubLinks.isSuccess || githubLinks.data.some((link) => link.source)
   // Orbit Cloud without a subscription: the description socket drops edits, so offer none.
   const contentReadOnly = githubContentReadOnly || workspaceReadOnly
@@ -145,14 +148,41 @@ export function TaskDetail({ task, project, state, onClose, onOpenTask, onOpenPr
   const assignees = users.filter((u) => task?.assigneeIds.includes(u.id))
   const supervisor = users.find((u) => u.id === task?.supervisorId)
   const isAdmin = workspace.role === 'owner' || workspace.role === 'admin'
-  const canChangeCompletionRule = task ? task.creatorId === state.currentUserId || task.supervisorId === state.currentUserId || isAdmin : false
-  const canChangeSupervisor = task ? !task.supervisorOnlyCompletion || task.supervisorId === state.currentUserId || isAdmin : true
+  const canEditProperties = task
+    ? canEditTaskProperties(task, state.currentUserId, isAdmin || canManageProject)
+    : false
+  const canChangeCompletionRule = canEditProperties && task
+    ? task.creatorId === state.currentUserId || task.supervisorId === state.currentUserId || isAdmin
+    : false
+  const canChangeSupervisor = canEditProperties && task
+    ? !task.supervisorId || task.supervisorId === state.currentUserId || isAdmin
+    : false
   const ruleProblem = updateTask.error instanceof ApiProblem && (updateTask.error.code === 'task_completion_forbidden' || fieldErrors(updateTask.error).some((error) => error.path[0] === 'supervisor_only_completion'))
   const updateErrorMessage = ruleProblem && !task?.supervisorId && updateTask.variables?.body.supervisor_only_completion
     ? 'Choose a supervisor before enabling supervisor-only completion.'
     : ruleProblem && updateTask.error instanceof ApiProblem
       ? updateTask.error.detail
       : 'Task update failed.'
+  const changeSupervisor = async (selectedId: string) => {
+    if (!task) return
+    const nextSupervisorId = task.supervisorId === selectedId ? null : selectedId
+    const confirmation = supervisorChangeConfirmation({
+      currentSupervisorId: task.supervisorId,
+      nextSupervisorId,
+      currentUserId: state.currentUserId,
+      nextSupervisorName: users.find((user) => user.id === nextSupervisorId)?.name,
+    })
+    if (!await confirmAction(confirmation)) return
+    updateTask.mutate({
+      taskId: task.id,
+      body: {
+        expected_version: task.version,
+        supervisor_id: nextSupervisorId,
+        ...(!nextSupervisorId && task.supervisorOnlyCompletion ? { supervisor_only_completion: false } : {}),
+      },
+    })
+  }
+
   const deleteAndClose = async (input: { taskId: string; version: number }) => {
     try {
       await deleteTask.mutateAsync(input)
@@ -216,11 +246,11 @@ export function TaskDetail({ task, project, state, onClose, onOpenTask, onOpenPr
             ) : null}
             <TaskTextFields
               task={task}
-              readOnly={contentReadOnly}
+              readOnly={contentReadOnly || !canEditProperties}
               onUpdate={(body) => updateTask.mutate({ taskId: task.id, body: { expected_version: task.version, ...body } })}
               onTitleTab={() => descriptionRef.current?.focus()}
             />
-            <TaskDescriptionEditor ref={descriptionRef} workspaceId={workspace.id} task={task} readOnly={contentReadOnly} />
+            <TaskDescriptionEditor ref={descriptionRef} workspaceId={workspace.id} task={task} readOnly={contentReadOnly || !canEditProperties} />
             {/* files attached before rich text; new files go into the description */}
             {task.attachments.length > 0 ? (
               <div className="mt-2 max-w-[520px]">
@@ -283,10 +313,13 @@ export function TaskDetail({ task, project, state, onClose, onOpenTask, onOpenPr
 
           <aside className="min-[900px]:col-start-2 min-[900px]:[grid-row:1/span_2] min-[900px]:border-l min-[900px]:px-5 min-[900px]:pt-8 min-[900px]:pb-6 max-[899px]:grid max-[899px]:w-full max-[899px]:grid-cols-2 max-[899px]:gap-x-3 max-[899px]:gap-y-3.5 max-[899px]:border-y max-[899px]:py-3.5">
             <PropertyGroup title="Properties" className="max-[899px]:col-span-full max-[899px]:flex-row max-[899px]:flex-wrap max-[899px]:items-center max-[899px]:gap-1 max-[899px]:*:data-[slot=property-heading]:w-full">
+              {canEditProperties ? null : (
+                <p className="w-full text-xs text-muted-foreground">Only the creator, assignees, supervisor, or an admin can change these.</p>
+              )}
               <DropdownMenu>
                 <DropdownMenuTrigger
                   render={
-                    <PropertyButton>
+                    <PropertyButton disabled={!canEditProperties}>
                       <TaskStatusIcon status={status} />
                       {status?.name ?? 'No status'}
                     </PropertyButton>
@@ -311,7 +344,7 @@ export function TaskDetail({ task, project, state, onClose, onOpenTask, onOpenPr
               <DropdownMenu>
                 <DropdownMenuTrigger
                   render={
-                    <PropertyButton>
+                    <PropertyButton disabled={!canEditProperties}>
                       <PriorityIcon priority={task.priority} />
                       {task.priority === 'none' ? 'Set priority' : PRIORITY_LABEL[task.priority]}
                     </PropertyButton>
@@ -342,7 +375,7 @@ export function TaskDetail({ task, project, state, onClose, onOpenTask, onOpenPr
                 selected={task.assigneeIds}
                 onSelect={(id) => updateTask.mutate({ taskId: task.id, body: { expected_version: task.version, assignee_ids: task.assigneeIds.includes(id) ? task.assigneeIds.filter((item) => item !== id) : [...task.assigneeIds, id] } })}
                 trigger={
-                  <PropertyButton>
+                  <PropertyButton disabled={!canEditProperties}>
                     {assignees.length > 0 ? (
                       <>
                         <UserAvatarStack users={assignees} size={16} />
@@ -362,11 +395,11 @@ export function TaskDetail({ task, project, state, onClose, onOpenTask, onOpenPr
                 placeholder="Set supervisor…"
                 emptyText="No people match"
                 tip={canChangeSupervisor
-                  ? 'The supervisor may mark this task complete; the assignees may too unless supervisor-only completion is on. Select the same person again to clear it.'
-                  : 'Only the supervisor or a workspace admin can change the supervisor while completion is supervisor-only.'}
+                  ? 'The supervisor may mark this task complete. Once set, only the supervisor or a workspace admin can change it. Select the same person again to clear it.'
+                  : 'Only the supervisor or a workspace admin can change the supervisor while one is set.'}
                 options={audience.map(personOption)}
                 selected={task.supervisorId ? [task.supervisorId] : []}
-                onSelect={(id) => updateTask.mutate({ taskId: task.id, body: { expected_version: task.version, supervisor_id: task.supervisorId === id ? null : id, ...(task.supervisorId === id && task.supervisorOnlyCompletion ? { supervisor_only_completion: false } : {}) } })}
+                onSelect={(id) => void changeSupervisor(id)}
                 trigger={
                   <PropertyButton disabled={!canChangeSupervisor} aria-label={`Supervisor: ${supervisor?.name ?? 'none'}`}>
                     {supervisor ? (
@@ -387,7 +420,7 @@ export function TaskDetail({ task, project, state, onClose, onOpenTask, onOpenPr
                 <DropdownMenu>
                   <DropdownMenuTrigger
                     render={
-                      <PropertyButton disabled={updateTask.isPending} aria-label={`Completion rule: ${task.supervisorOnlyCompletion ? 'supervisor only' : 'assignee or supervisor'}`}>
+                      <PropertyButton disabled={!canChangeCompletionRule || updateTask.isPending} aria-label={`Completion rule: ${task.supervisorOnlyCompletion ? 'supervisor only' : 'assignee or supervisor'}`}>
                         <SquareCheck aria-hidden="true" className="text-muted-foreground" />
                         <span className="truncate">{task.supervisorOnlyCompletion ? 'Supervisor-only completion' : 'Assignee or supervisor completes'}</span>
                       </PropertyButton>
@@ -424,7 +457,7 @@ export function TaskDetail({ task, project, state, onClose, onOpenTask, onOpenPr
                 value={task.milestoneId ?? null}
                 onChange={(milestoneId) => updateTask.mutate({ taskId: task.id, body: { expected_version: task.version, milestone_id: milestoneId } })}
                 trigger={
-                  <PropertyButton className={cn('max-w-full', !milestone && 'text-muted-foreground')} aria-label={`Milestone: ${milestone?.name ?? 'none'}`}>
+                  <PropertyButton disabled={!canEditProperties} className={cn('max-w-full', !milestone && 'text-muted-foreground')} aria-label={`Milestone: ${milestone?.name ?? 'none'}`}>
                     <Diamonds className="size-3.5" aria-hidden="true" />
                     <span className="truncate">{milestone?.name ?? 'Set milestone'}</span>
                   </PropertyButton>
@@ -435,7 +468,7 @@ export function TaskDetail({ task, project, state, onClose, onOpenTask, onOpenPr
                 value={task.cycleId ?? null}
                 onChange={(cycleId) => updateTask.mutate({ taskId: task.id, body: { expected_version: task.version, cycle_id: cycleId } })}
                 trigger={
-                  <PropertyButton className={cn('max-w-full', !cycle && 'text-muted-foreground')} aria-label={`Cycle: ${cycle ? cycleName(cycle) : 'none'}`}>
+                  <PropertyButton disabled={!canEditProperties} className={cn('max-w-full', !cycle && 'text-muted-foreground')} aria-label={`Cycle: ${cycle ? cycleName(cycle) : 'none'}`}>
                     <RefreshCircle className="size-3.5" aria-hidden="true" />
                     <span className="truncate">{cycle ? cycleName(cycle) : 'Set cycle'}</span>
                   </PropertyButton>
@@ -445,7 +478,7 @@ export function TaskDetail({ task, project, state, onClose, onOpenTask, onOpenPr
                 value={task.estimate ?? null}
                 onChange={(estimate) => updateTask.mutate({ taskId: task.id, body: { expected_version: task.version, estimate } })}
                 trigger={
-                  <PropertyButton className={cn(task.estimate == null && 'text-muted-foreground')} aria-label={`Estimate: ${task.estimate == null ? 'none' : estimateLabel(task.estimate)}`}>
+                  <PropertyButton disabled={!canEditProperties} className={cn(task.estimate == null && 'text-muted-foreground')} aria-label={`Estimate: ${task.estimate == null ? 'none' : estimateLabel(task.estimate)}`}>
                     <Triangle className="size-3.5" aria-hidden="true" />
                     {task.estimate == null ? 'Set estimate' : estimateLabel(task.estimate)}
                   </PropertyButton>
@@ -454,7 +487,7 @@ export function TaskDetail({ task, project, state, onClose, onOpenTask, onOpenPr
               {task.parent ? (
                 <DropdownMenu>
                   <DropdownMenuTrigger render={
-                    <PropertyButton className="max-w-full" aria-label={`Parent: ${refIdentifier(task.parent)} ${task.parent.title}`}>
+                    <PropertyButton disabled={!canEditProperties} className="max-w-full" aria-label={`Parent: ${refIdentifier(task.parent)} ${task.parent.title}`}>
                       <Hierarchy2 className="size-3.5" aria-hidden="true" />
                       <span className="shrink-0 text-muted-foreground tabular-nums">{refIdentifier(task.parent)}</span>
                       <span className="truncate">{task.parent.title || 'Untitled'}</span>
@@ -467,7 +500,7 @@ export function TaskDetail({ task, project, state, onClose, onOpenTask, onOpenPr
                   </DropdownMenuContent>
                 </DropdownMenu>
               ) : (
-                <PropertyButton className="text-muted-foreground" onClick={() => setParentPicker('set')}>
+                <PropertyButton disabled={!canEditProperties} className="text-muted-foreground" onClick={() => setParentPicker('set')}>
                   <Hierarchy2 className="size-3.5" aria-hidden="true" />
                   Set parent
                 </PropertyButton>
@@ -483,13 +516,13 @@ export function TaskDetail({ task, project, state, onClose, onOpenTask, onOpenPr
                 editLink
                 onChange={(labelIds) => updateTask.mutate({ taskId: task.id, body: { expected_version: task.version, label_ids: labelIds } })}
                 trigger={taskLabels.length === 0 ? (
-                  <PropertyButton className="text-muted-foreground" aria-label="Add label">
+                  <PropertyButton disabled={!canEditProperties} className="text-muted-foreground" aria-label="Add label">
                     <Tag className="size-3.5" aria-hidden="true" />
                     Add label
                   </PropertyButton>
                 ) : (
                   // one control: the pills open the picker, where labels are also removed
-                  <button type="button" aria-label={`Labels: ${taskLabels.map((label) => label.name).join(', ')}`} className="-mx-1 flex max-w-full flex-wrap gap-1 rounded-md p-1 text-left outline-none hover:bg-muted/50 focus-visible:ring-3 focus-visible:ring-ring/50 aria-expanded:bg-muted/50">
+                  <button type="button" disabled={!canEditProperties} aria-label={`Labels: ${taskLabels.map((label) => label.name).join(', ')}`} className="-mx-1 flex max-w-full flex-wrap gap-1 rounded-md p-1 text-left outline-none hover:bg-muted/50 focus-visible:ring-3 focus-visible:ring-ring/50 aria-expanded:bg-muted/50 disabled:pointer-events-none disabled:opacity-50 disabled:hover:bg-transparent">
                     {taskLabels.map((label) => <LabelPill key={label.id} label={label} />)}
                     <span aria-hidden="true" className="flex h-5 items-center px-0.5 text-muted-foreground"><Plus className="size-3.5" /></span>
                   </button>
@@ -517,7 +550,7 @@ export function TaskDetail({ task, project, state, onClose, onOpenTask, onOpenPr
                   }}
                   trigger={
                     // the pill is the trigger, like "Add label": a ghost button around a badge reads as two controls
-                    <Button variant="outline" size="xs" className="h-5 max-w-full rounded-full font-medium" aria-label={`Project: ${project?.name ?? 'none'}`}>
+                    <Button disabled={!canEditProperties} variant="outline" size="xs" className="h-5 max-w-full rounded-full font-medium" aria-label={`Project: ${project?.name ?? 'none'}`}>
                       {project ? <ColorDot color={project.color} /> : null}
                       <span className="truncate">{project?.name ?? 'Set project'}</span>
                     </Button>
@@ -539,7 +572,7 @@ export function TaskDetail({ task, project, state, onClose, onOpenTask, onOpenPr
                 </a>
               ) : null}
               <Popover open={sourceOpen} onOpenChange={setSourceOpen}>
-                <PopoverTrigger render={<PropertyButton type="button" className="h-7 text-muted-foreground">{task.sourceUrl ? 'Edit source' : 'Add source'}</PropertyButton>} />
+                <PopoverTrigger render={<PropertyButton type="button" disabled={!canEditProperties} className="h-7 text-muted-foreground">{task.sourceUrl ? 'Edit source' : 'Add source'}</PropertyButton>} />
                 <PopoverContent align="start" className="w-72 gap-2 p-3">
                   <form onSubmit={(event) => {
                     event.preventDefault()
@@ -558,7 +591,7 @@ export function TaskDetail({ task, project, state, onClose, onOpenTask, onOpenPr
               <Popover open={dueDateOpen} onOpenChange={setDueDateOpen}>
                 <PopoverTrigger
                   render={
-                    <PropertyButton type="button" aria-label="Due date">
+                    <PropertyButton type="button" disabled={!canEditProperties} aria-label="Due date">
                       <Calendar className="size-3.5" aria-hidden="true" />
                       <span>{dueDateLabel(task.dueAt, task.dueStartAt)}</span>
                     </PropertyButton>
@@ -583,7 +616,7 @@ export function TaskDetail({ task, project, state, onClose, onOpenTask, onOpenPr
               <Popover open={repeatOpen} onOpenChange={setRepeatOpen}>
                 <PopoverTrigger
                   render={
-                    <PropertyButton type="button" aria-label="Repeat" className={task.recurrence ? undefined : 'text-muted-foreground'}>
+                    <PropertyButton type="button" disabled={!canEditProperties} aria-label="Repeat" className={task.recurrence ? undefined : 'text-muted-foreground'}>
                       <Repeat className="size-3.5" aria-hidden="true" />
                       <span className="truncate">{recurrenceLabel(task.recurrence)}</span>
                     </PropertyButton>

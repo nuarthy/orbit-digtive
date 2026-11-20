@@ -1,7 +1,7 @@
 import { expect, test } from 'bun:test'
 
 import type { ProjectRecord, StatusRecord, TaskRecord } from './orbit'
-import { defaultStatusOf, dueLabel, groupTasksByStatus, identifier, myOpenTasks } from './tasks'
+import { canEditTaskProperties, defaultStatusOf, dueLabel, groupTasksByStatus, identifier, myOpenTasks, supervisorChangeConfirmation } from './tasks'
 
 const status = (id: string, name: string, category: string, position: number, project_id = 'p1'): StatusRecord => ({
   id,
@@ -72,6 +72,32 @@ test('my open tasks: assigned to me, not closed, soonest due first, then priorit
     3,
   )
   expect(mine.map((item) => item.id)).toEqual(['soon', 'later', 'undated-high'])
+})
+
+test('only task people and admins can edit properties', () => {
+  const record = { creator_id: 'creator', assignee_ids: ['assignee'], supervisor_id: 'supervisor' }
+  expect(canEditTaskProperties(record, 'creator', false)).toBe(true)
+  expect(canEditTaskProperties(record, 'assignee', false)).toBe(true)
+  expect(canEditTaskProperties(record, 'supervisor', false)).toBe(true)
+  expect(canEditTaskProperties(record, 'admin', true)).toBe(true)
+  expect(canEditTaskProperties(record, 'stranger', false)).toBe(false)
+})
+
+test('supervisor change warning explains who keeps the right', () => {
+  expect(supervisorChangeConfirmation({
+    currentSupervisorId: 'me', nextSupervisorId: 'bo', currentUserId: 'me', nextSupervisorName: 'Bo',
+  })).toEqual({
+    title: 'Change supervisor to Bo?',
+    description: 'You will no longer be able to change the supervisor. Only Bo or a workspace admin will be able to change it later.',
+    confirmLabel: 'Change supervisor',
+    danger: true,
+  })
+  expect(supervisorChangeConfirmation({
+    currentSupervisorId: 'ada', nextSupervisorId: 'bo', currentUserId: 'admin', nextSupervisorName: 'Bo',
+  }).description).toBe('Only Bo or a workspace admin will be able to change it later.')
+  expect(supervisorChangeConfirmation({
+    currentSupervisorId: 'ada', nextSupervisorId: null, currentUserId: 'admin',
+  }).confirmLabel).toBe('Remove supervisor')
 })
 
 test('identifier joins the project key and the number', () => {
