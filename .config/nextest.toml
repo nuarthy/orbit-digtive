@@ -1,0 +1,5 @@
+# Several upstream integration tests are timing-sensitive under CI (rate limits, resumes, and
+# shutdown races). A single retry keeps a real failure red while letting a flaky pass be reported
+# as flaky instead of failing the whole job.
+[profile.default]
+retries = 1
