@@ -4382,7 +4382,7 @@ async fn only_task_people_and_admins_can_change_task_properties() {
     let fixture = Fixture::new().await;
     let (_creator_id, creator_cookie) = add_member(&fixture, "creator@example.com").await;
     let (outsider_id, outsider_cookie) = add_member(&fixture, "outsider@example.com").await;
-    let (_supervisor_id, supervisor_cookie) = add_member(&fixture, "supervisor@example.com").await;
+    let (supervisor_id, supervisor_cookie) = add_member(&fixture, "supervisor@example.com").await;
 
     async fn patch(
         fixture: &Fixture,
