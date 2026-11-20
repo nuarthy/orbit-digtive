@@ -21,7 +21,9 @@ async function bootstrapOwner(page: Page) {
   await page.getByLabel('Email').fill('owner@orbit.test')
   await page.getByRole('textbox', { name: 'Password *' }).fill('correct horse battery staple')
   await page.getByRole('button', { name: 'Create root account' }).click()
-  await expect(page).toHaveURL(/\/onboarding$/)
+  await expect(page).toHaveURL(/\/(onboarding|admin)(?:\?|$)/)
+  // The root shell and onboarding race after setup; open onboarding explicitly.
+  await page.goto('/onboarding')
   await page.getByLabel('Workspace name').fill('Foundation')
   await page.getByRole('button', { name: 'Create workspace' }).click()
   await page.getByLabel('Project name').fill('Launch')

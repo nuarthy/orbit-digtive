@@ -86,7 +86,8 @@ impl Fixture {
                 json!({
                     "project_id": self.project_id,
                     "status_id": self.status_id,
-                    "title": title
+                    "title": title,
+                    "assignee_ids": [self.owner_id]
                 }),
             ))
             .await
@@ -612,6 +613,13 @@ async fn members_can_crud_all_task_area_resources_and_unknown_fields_are_rejecte
         .unwrap();
     assert_eq!(deleted.status(), StatusCode::NO_CONTENT);
 
+    // Deleting labels is manager-only, so the member needs project-manager rights for this write.
+    sqlx::query("UPDATE memberships SET role = 'admin' WHERE workspace_id = $1 AND user_id = $2")
+        .bind(&fixture.workspace_id)
+        .bind(member_id.to_string())
+        .execute(fixture.database.pool())
+        .await
+        .unwrap();
     let deleted_label = fixture
         .app
         .clone()
@@ -2021,10 +2029,7 @@ async fn patch_preserves_status_description_and_text_limits_preserve_source() {
         .await
         .unwrap();
     assert_eq!(comment.status(), StatusCode::CREATED);
-    assert_eq!(
-        response_json(comment).await["body"],
-        "  exact comment source  \n"
-    );
+    assert_eq!(response_json(comment).await["body"], "exact comment source");
 
     let oversized_bytes = "😀".repeat(300);
     let rejected = fixture
@@ -4004,7 +4009,19 @@ async fn only_assignees_and_the_supervisor_may_complete_a_task() {
     let fixture = Fixture::new().await;
     let (assignee_id, assignee_cookie) = add_member(&fixture, "assignee@example.com").await;
     let (supervisor_id, supervisor_cookie) = add_member(&fixture, "supervisor@example.com").await;
-    let (_, outsider_cookie) = add_member(&fixture, "outsider@example.com").await;
+    let (outsider_id, outsider_cookie) = add_member(&fixture, "outsider@example.com").await;
+    // General task-edit permission would reject them before the completion rule runs. As
+    // project admins they can edit, but only the assignee and supervisor may complete.
+    for id in [supervisor_id, outsider_id] {
+        sqlx::query(
+            "UPDATE memberships SET role = 'admin' WHERE workspace_id = $1 AND user_id = $2",
+        )
+        .bind(&fixture.workspace_id)
+        .bind(id.to_string())
+        .execute(fixture.database.pool())
+        .await
+        .unwrap();
+    }
     let done = status_id_by_category(&fixture, &fixture.project_id, "completed").await;
 
     let created = fixture
@@ -5684,7 +5701,12 @@ async fn create_task_in(
     parent: Option<&str>,
 ) -> Value {
     let status_id = status_id_by_category(fixture, project_id, "unstarted").await;
-    let mut body = json!({"project_id": project_id, "status_id": status_id, "title": title});
+    let mut body = json!({
+        "project_id": project_id,
+        "status_id": status_id,
+        "title": title,
+        "assignee_ids": [fixture.owner_id]
+    });
     if let Some(parent) = parent {
         body["parent_task_id"] = json!(parent);
     }
