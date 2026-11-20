@@ -949,6 +949,8 @@ async fn resumes_after_a_restart_without_duplicates() {
     let import = h.view(&id).await;
     assert_eq!(import["status"], "importing");
     assert!(import["progress"]["done"].as_u64().unwrap() < 6);
+    // The shutdown can land before or after the ops team's first listing, depending on timing.
+    let ops_hits_before_reset = h.fake.hits("issues t-ops");
 
     // A crash right after Orbit rows were made, before their items said so.
     sqlx::query(
@@ -1001,7 +1003,7 @@ async fn resumes_after_a_restart_without_duplicates() {
     }
     assert_eq!(
         h.fake.hits("issues t-ops"),
-        2,
+        ops_hits_before_reset + 1,
         "the reset team was listed again"
     );
     assert_eq!(h.fake.hits("issues t-eng"), 1);
