@@ -51,7 +51,7 @@ test('a GitHub issue title is read-only, but links remain usable', () => {
 
   fireEvent.click(view.getByLabelText('Task title'))
 
-  expect(view.queryByRole('textbox')).toBeNull()
+  expect(view.container.querySelectorAll('[role="textbox"], input, textarea').length).toBe(0)
   expect(view.getByRole('link')).toBeTruthy()
   expect(onUpdate).not.toHaveBeenCalled()
 })

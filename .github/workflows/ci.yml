@@ -134,6 +134,9 @@ jobs:
     name: Rust tests
     needs: web-build
     runs-on: ubuntu-latest
+    env:
+      # The Linear import completion tests await a large future; libtest's 2 MiB default stack overflows.
+      RUST_MIN_STACK: "8388608"
     steps:
       - uses: actions/checkout@v4
       - uses: actions/download-artifact@v8
