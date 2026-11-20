@@ -205,6 +205,7 @@ impl Records {
                 "user_id" | "user_ids" | "member_ids" | "assignee_ids" | "mentioned_user_ids" => {
                     "user_id"
                 }
+                "import_id" => "orbit_import_id",
                 "id" => "random",
                 other => other,
             }
@@ -418,12 +419,21 @@ fn operations(document: &Value, records: &Records) -> Vec<Operation> {
             });
         }
     }
-    // Children before parents, so that deleting a task does not hide its comments.
+    // Children before parents, so that deleting a task does not hide its comments. Emptying the
+    // trash is destructive too: it must follow the reads of records placed there by the fixture.
     operations.sort_by_key(|operation| {
-        let delete = operation.method == "DELETE";
+        let destructive = operation.method == "DELETE"
+            || matches!(
+                operation.id.as_str(),
+                "empty_page_trash" | "empty_task_trash"
+            );
         (
-            delete,
-            std::cmp::Reverse(if delete { operation.template.len() } else { 0 }),
+            destructive,
+            std::cmp::Reverse(if destructive {
+                operation.template.len()
+            } else {
+                0
+            }),
         )
     });
     operations
